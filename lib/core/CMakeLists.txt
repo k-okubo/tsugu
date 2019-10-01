@@ -1,0 +1,11 @@
+add_library(core
+  ast.c
+  error.c
+  memory.c
+  parser.c
+  resolver.c
+  scanner.c
+  token.c
+  type.c
+  verifier.c
+)
