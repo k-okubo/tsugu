@@ -27,6 +27,10 @@ class Compiler {
   void insert(tsg_decl_t* decl, llvm::Value* value);
   llvm::Value* lookup(tsg_decl_t* decl);
 
+  llvm::Type* convTy(tsg_type_t* type);
+  llvm::FunctionType* convFuncTy(tsg_type_t* type);
+  std::vector<llvm::Type*> convTyArr(tsg_type_arr_t* arr);
+
   void buildAst(tsg_ast_t* ast);
   void buildFuncProto(tsg_func_t* func);
   void buildFuncBody(tsg_func_t* func);

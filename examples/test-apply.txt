@@ -1,0 +1,15 @@
+def apply(f, x) {
+  f(x);
+}
+
+def double(x) {
+  2 * x;
+}
+
+def triple(x) {
+  3 * x;
+}
+
+def main() {
+  apply(double, 30) + apply(triple, 2);
+}

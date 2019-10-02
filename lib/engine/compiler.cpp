@@ -69,6 +69,38 @@ llvm::Value* Compiler::lookup(tsg_decl_t* decl) {
   return value_table[depth][index];
 }
 
+llvm::Type* Compiler::convTy(tsg_type_t* type) {
+  switch (type->kind) {
+    case TSG_TYPE_INT:
+      return builder.getInt32Ty();
+
+    case TSG_TYPE_FUNC:
+      return convFuncTy(type)->getPointerTo();
+  }
+}
+
+llvm::FunctionType* Compiler::convFuncTy(tsg_type_t* type) {
+  auto ret_type = convTy(type->func.ret);
+  auto param_types = convTyArr(type->func.params);
+  auto func_type = llvm::FunctionType::get(ret_type, param_types, false);
+
+  return func_type;
+}
+
+std::vector<llvm::Type*> Compiler::convTyArr(tsg_type_arr_t* arr) {
+  std::vector<llvm::Type*> result;
+
+  tsg_type_t** p = arr->elem;
+  tsg_type_t** end = arr->elem + arr->size;
+
+  while (p < end) {
+    result.push_back(convTy(*p));
+    p++;
+  }
+
+  return result;
+}
+
 void Compiler::buildAst(tsg_ast_t* ast) {
   enterScope(ast->functions->size);
   function_table = std::vector<llvm::Function*>(ast->functions->size, nullptr);
@@ -90,11 +122,7 @@ void Compiler::buildAst(tsg_ast_t* ast) {
 
 void Compiler::buildFuncProto(tsg_func_t* func) {
   tsg_decl_t* decl = func->decl;
-  size_t num_args = func->args->size;
-
-  std::vector<llvm::Type*> arg_types(num_args, builder.getInt32Ty());
-  auto ret_type = builder.getInt32Ty();
-  auto func_type = llvm::FunctionType::get(ret_type, arg_types, false);
+  auto func_type = convFuncTy(decl->type);
   auto llvm_func =
       llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
                              tsg_ident_cstr(decl->name), module);

@@ -1,8 +1,8 @@
 
 #include <tsugu/core/verifier.h>
 
-#include <tsugu/core/memory.h>
 #include "resolver.h"
+#include <tsugu/core/memory.h>
 
 typedef struct scope_s scope_t;
 struct scope_s {
@@ -160,8 +160,28 @@ void verify_func_proto(tsg_verifier_t* verifier, tsg_func_t* func) {
 
   tsg_type_t* func_type = tsg_type_create();
   func_type->kind = TSG_TYPE_FUNC;
+  func_type->func.params = tsg_type_arr_create(func->args->size);
   func_type->func.ret = ret_type;
-  func_type->func.n_args = func->args->size;
+
+  tsg_decl_node_t* node = func->args->head;
+  tsg_type_t** p = func_type->func.params->elem;
+  while (node) {
+    tsg_type_t* type = tsg_type_create();
+
+    if (node->decl->name->buffer[0] == 'f') {
+      type->kind = TSG_TYPE_FUNC;
+      type->func.params = tsg_type_arr_create(1);
+      type->func.params->elem[0] = tsg_type_create();
+      type->func.params->elem[0]->kind = TSG_TYPE_INT;
+      type->func.ret = tsg_type_create();
+      type->func.ret->kind = TSG_TYPE_INT;
+    } else {
+      type->kind = TSG_TYPE_INT;
+    }
+
+    *(p++) = type;
+    node = node->next;
+  }
 
   func->decl->type = func_type;
   insert(verifier, func->decl);
@@ -173,7 +193,17 @@ void verify_func_body(tsg_verifier_t* verifier, tsg_func_t* func) {
   tsg_decl_node_t* node = func->args->head;
   while (node) {
     tsg_type_t* type = tsg_type_create();
-    type->kind = TSG_TYPE_INT;
+
+    if (node->decl->name->buffer[0] == 'f') {
+      type->kind = TSG_TYPE_FUNC;
+      type->func.params = tsg_type_arr_create(1);
+      type->func.params->elem[0] = tsg_type_create();
+      type->func.params->elem[0]->kind = TSG_TYPE_INT;
+      type->func.ret = tsg_type_create();
+      type->func.ret->kind = TSG_TYPE_INT;
+    } else {
+      type->kind = TSG_TYPE_INT;
+    }
 
     node->decl->type = type;
     insert(verifier, node->decl);
@@ -209,11 +239,6 @@ void verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
 
 void verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   tsg_type_t* type = verify_expr(verifier, stmt->val.expr);
-  if (type && type->kind != TSG_TYPE_INT) {
-    error(verifier, &(stmt->val.expr->loc),
-          "currently val accepts only integer type");
-  }
-
   stmt->val.decl->type = type;
   insert(verifier, stmt->val.decl);
 }
@@ -266,21 +291,25 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   if (callee_type) {
     if (callee_type->kind != TSG_TYPE_FUNC) {
       error(verifier, &(expr->call.callee->loc), "not a function");
-    } else if (expr->call.args->size < callee_type->func.n_args) {
+      return NULL;
+    } else if (expr->call.args->size < callee_type->func.params->size) {
       error(verifier, &(expr->loc), "too few arguments");
-    } else if (expr->call.args->size > callee_type->func.n_args) {
+      return NULL;
+    } else if (expr->call.args->size > callee_type->func.params->size) {
       error(verifier, &(expr->loc), "too many arguments");
+      return NULL;
     }
   }
 
+  tsg_type_t** param_type = callee_type->func.params->elem;
   tsg_expr_node_t* node = expr->call.args->head;
   while (node) {
     tsg_type_t* arg_type = verify_expr(verifier, node->expr);
-    if (arg_type && arg_type->kind != TSG_TYPE_INT) {
-      error(verifier, &(node->expr->loc),
-            "currently arg accepts only integer type");
+    if (arg_type && arg_type->kind != (*param_type)->kind) {
+      error(verifier, &(node->expr->loc), "arg type miss match");
     }
     tsg_type_release(arg_type);
+    param_type++;
     node = node->next;
   }
 
