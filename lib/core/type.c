@@ -49,6 +49,9 @@ void destroy_type(tsg_type_t* type) {
     case TSG_TYPE_FUNC:
       destory_type_func(type);
       break;
+
+    case TSG_TYPE_PEND:
+      break;
   }
 
   tsg_free(type);
@@ -76,6 +79,9 @@ bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b) {
         return false;
       }
       return true;
+
+    case TSG_TYPE_PEND:
+      return false;
   }
 }
 

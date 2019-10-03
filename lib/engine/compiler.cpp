@@ -76,6 +76,9 @@ llvm::Type* Compiler::convTy(tsg_type_t* type) {
 
     case TSG_TYPE_FUNC:
       return convFuncTy(type)->getPointerTo();
+
+    case TSG_TYPE_PEND:
+      return nullptr;
   }
 }
 
@@ -236,7 +239,7 @@ llvm::Value* Compiler::buildExprIfelse(tsg_expr_t* expr) {
 
   func->getBasicBlockList().push_back(merge_block);
   builder.SetInsertPoint(merge_block);
-  auto phi = builder.CreatePHI(builder.getInt32Ty(), 2);
+  auto phi = builder.CreatePHI(then_value->getType(), 2);
   phi->addIncoming(then_value, then_block);
   phi->addIncoming(else_value, else_block);
 

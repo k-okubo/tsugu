@@ -1,4 +1,8 @@
-def id(x) {
+def idfn(f) {
+  f;
+}
+
+def idnum(x) {
   x;
 }
 
@@ -7,5 +11,5 @@ def double(x) {
 }
 
 def main() {
-  id(double)(id(2));
+  idfn(double)(idnum(3));
 }

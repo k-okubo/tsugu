@@ -9,6 +9,7 @@
 typedef enum {
   TSG_TYPE_INT,
   TSG_TYPE_FUNC,
+  TSG_TYPE_PEND,
 } tsg_type_kind_t;
 
 typedef struct tsg_func_s tsg_func_t;

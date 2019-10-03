@@ -29,11 +29,11 @@ static void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
 static void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast);
 static void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
                         tsg_type_arr_t* arg_types);
-static void verify_block(tsg_verifier_t* verifier, tsg_block_t* block);
+static tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block);
 
-static void verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
-static void verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
-static void verify_stmt_expr(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
+static tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
+static tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
+static tsg_type_t* verify_stmt_expr(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
 
 static tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr);
 static tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier,
@@ -182,7 +182,7 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   func_type->kind = TSG_TYPE_FUNC;
   func_type->func.params = arg_types;
   func_type->func.ret = tsg_type_create();
-  func_type->func.ret->kind = TSG_TYPE_INT;
+  func_type->func.ret->kind = TSG_TYPE_PEND;
 
   scope_t* scope = verifier->scope;
   verifier->scope = verifier->func_scope;
@@ -201,43 +201,52 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
     ptype++;
   }
 
-  verify_block(verifier, func->body);
+  tsg_type_t* ret_type = verify_block(verifier, func->body);
+  tsg_type_release(func_type->func.ret);
+  func_type->func.ret = ret_type;
 
   leave_scope(verifier);
   verifier->scope = scope;
 }
 
-void verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
+tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
+  tsg_type_t* last_stmt_type = NULL;
+
   tsg_stmt_node_t* node = block->stmts->head;
   while (node) {
-    verify_stmt(verifier, node->stmt);
+    if (last_stmt_type != NULL) {
+      tsg_type_release(last_stmt_type);
+    }
+
+    last_stmt_type = verify_stmt(verifier, node->stmt);
     node = node->next;
   }
 
   block->n_decls = verifier->scope->size;
+  return last_stmt_type;
 }
 
-void verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
+tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   switch (stmt->kind) {
     case TSG_STMT_VAL:
-      verify_stmt_val(verifier, stmt);
-      break;
+      return verify_stmt_val(verifier, stmt);
 
     case TSG_STMT_EXPR:
-      verify_stmt_expr(verifier, stmt);
-      break;
+      return verify_stmt_expr(verifier, stmt);
   }
 }
 
-void verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
+tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   tsg_type_t* type = verify_expr(verifier, stmt->val.expr);
   stmt->val.decl->type = type;
   insert(verifier, stmt->val.decl);
+
+  tsg_type_retain(type);
+  return type;
 }
 
-void verify_stmt_expr(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
-  tsg_type_t* type = verify_expr(verifier, stmt->expr.expr);
-  tsg_type_release(type);
+tsg_type_t* verify_stmt_expr(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
+  return verify_expr(verifier, stmt->expr.expr);
 }
 
 tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
@@ -261,20 +270,34 @@ tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
 tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* lhs_type = verify_expr(verifier, expr->binary.lhs);
-  if (lhs_type && lhs_type->kind != TSG_TYPE_INT) {
-    error(verifier, &(expr->binary.lhs->loc), "incompatible type");
+  tsg_type_t* rhs_type = verify_expr(verifier, expr->binary.rhs);
+
+  if (lhs_type == NULL || rhs_type == NULL) {
+    return NULL;
   }
 
-  tsg_type_t* rhs_type = verify_expr(verifier, expr->binary.rhs);
-  if (rhs_type && rhs_type->kind != TSG_TYPE_INT) {
-    error(verifier, &(expr->binary.rhs->loc), "incompatible type");
+  tsg_type_t* type = tsg_type_create();
+
+  if (lhs_type->kind == TSG_TYPE_INT && rhs_type->kind == TSG_TYPE_INT) {
+    type->kind = TSG_TYPE_INT;
+  } else if (lhs_type->kind == TSG_TYPE_INT &&
+             rhs_type->kind == TSG_TYPE_PEND) {
+    type->kind = TSG_TYPE_INT;
+  } else if (lhs_type->kind == TSG_TYPE_PEND &&
+             rhs_type->kind == TSG_TYPE_INT) {
+    type->kind = TSG_TYPE_INT;
+  } else if (lhs_type->kind == TSG_TYPE_PEND &&
+             rhs_type->kind == TSG_TYPE_PEND) {
+    type->kind = TSG_TYPE_PEND;
+  } else {
+    error(verifier, &(expr->loc), "incompatible type");
+    tsg_type_release(type);
+    type = NULL;
   }
 
   tsg_type_release(lhs_type);
   tsg_type_release(rhs_type);
 
-  tsg_type_t* type = tsg_type_create();
-  type->kind = TSG_TYPE_INT;
   return type;
 }
 
@@ -353,16 +376,35 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_release(cond_type);
 
   enter_scope(verifier);
-  verify_block(verifier, expr->ifelse.thn);
+  tsg_type_t* thn_type = verify_block(verifier, expr->ifelse.thn);
   leave_scope(verifier);
 
   enter_scope(verifier);
-  verify_block(verifier, expr->ifelse.els);
+  tsg_type_t* els_type = verify_block(verifier, expr->ifelse.els);
   leave_scope(verifier);
 
-  tsg_type_t* type = tsg_type_create();
-  type->kind = TSG_TYPE_INT;
-  return type;
+  if (thn_type == NULL || els_type == NULL) {
+    return NULL;
+  }
+
+  if (thn_type->kind == TSG_TYPE_PEND && els_type->kind != TSG_TYPE_PEND) {
+    tsg_type_release(thn_type);
+    return els_type;
+  } else if (thn_type->kind != TSG_TYPE_PEND &&
+             els_type->kind == TSG_TYPE_PEND) {
+    tsg_type_release(els_type);
+    return thn_type;
+  } else if (tsg_type_equals(thn_type, els_type)) {
+    tsg_type_release(els_type);
+    return thn_type;
+  } else {
+    error(verifier, &(expr->loc),
+          "type miss match with thn_block and els_block");
+
+    tsg_type_release(thn_type);
+    tsg_type_release(els_type);
+    return NULL;
+  }
 }
 
 tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier, tsg_expr_t* expr) {
