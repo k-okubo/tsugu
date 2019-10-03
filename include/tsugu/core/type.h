@@ -10,12 +10,15 @@ typedef enum {
   TSG_TYPE_FUNC,
 } tsg_type_kind_t;
 
+typedef struct tsg_func_s tsg_func_t;
+
 typedef struct tsg_type_s tsg_type_t;
 typedef struct tsg_type_arr_s tsg_type_arr_t;
 
 struct tsg_type_func_s {
   tsg_type_arr_t* params;
   tsg_type_t* ret;
+  tsg_func_t* func;
 };
 
 struct tsg_type_s {

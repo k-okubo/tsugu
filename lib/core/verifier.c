@@ -3,6 +3,7 @@
 
 #include "resolver.h"
 #include <tsugu/core/memory.h>
+#include <string.h>
 
 typedef struct scope_s scope_t;
 struct scope_s {
@@ -15,6 +16,7 @@ struct scope_s {
 struct tsg_verifier_s {
   scope_t* scope;
   tsg_errlist_t errors;
+  scope_t* func_scope;
 };
 
 static void enter_scope(tsg_verifier_t* verifier);
@@ -25,8 +27,8 @@ static void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
                   const char* format, ...);
 
 static void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast);
-static void verify_func_proto(tsg_verifier_t* verifier, tsg_func_t* func);
-static void verify_func_body(tsg_verifier_t* verifier, tsg_func_t* func);
+static void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
+                        tsg_type_arr_t* arg_types);
 static void verify_block(tsg_verifier_t* verifier, tsg_block_t* block);
 
 static void verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt);
@@ -43,6 +45,9 @@ static tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier,
                                         tsg_expr_t* expr);
 static tsg_type_t* verify_expr_number(void);
 
+static tsg_type_arr_t* verify_expr_list(tsg_verifier_t* verifier,
+                                        tsg_expr_list_t* list);
+
 tsg_verifier_t* tsg_verifier_create(void) {
   tsg_verifier_t* verifier = tsg_malloc_obj(tsg_verifier_t);
   if (verifier == NULL) {
@@ -51,6 +56,7 @@ tsg_verifier_t* tsg_verifier_create(void) {
 
   verifier->scope = NULL;
   tsg_errlist_init(&(verifier->errors));
+  verifier->func_scope = NULL;
 
   return verifier;
 }
@@ -137,82 +143,68 @@ bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast) {
 }
 
 void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
+  tsg_func_t* main_func = NULL;
+
   enter_scope(verifier);
+  verifier->func_scope = verifier->scope;
 
   tsg_func_node_t* node = ast->functions->head;
   while (node) {
-    verify_func_proto(verifier, node->func);
+    tsg_type_t* type = tsg_type_create();
+    type->kind = TSG_TYPE_FUNC;
+    type->func.params = NULL;
+    type->func.ret = NULL;
+    type->func.func = node->func;
+    node->func->decl->type = type;
+
+    insert(verifier, node->func->decl);
+
+    if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
+      main_func = node->func;
+    }
+
     node = node->next;
   }
 
-  node = ast->functions->head;
-  while (node) {
-    verify_func_body(verifier, node->func);
-    node = node->next;
-  }
+  tsg_type_arr_t* main_arg = tsg_type_arr_create(0);
+  verify_func(verifier, main_func, main_arg);
 
   leave_scope(verifier);
 }
 
-void verify_func_proto(tsg_verifier_t* verifier, tsg_func_t* func) {
-  tsg_type_t* ret_type = tsg_type_create();
-  ret_type->kind = TSG_TYPE_INT;
-
-  tsg_type_t* func_type = tsg_type_create();
-  func_type->kind = TSG_TYPE_FUNC;
-  func_type->func.params = tsg_type_arr_create(func->args->size);
-  func_type->func.ret = ret_type;
-
-  tsg_decl_node_t* node = func->args->head;
-  tsg_type_t** p = func_type->func.params->elem;
-  while (node) {
-    tsg_type_t* type = tsg_type_create();
-
-    if (node->decl->name->buffer[0] == 'f') {
-      type->kind = TSG_TYPE_FUNC;
-      type->func.params = tsg_type_arr_create(1);
-      type->func.params->elem[0] = tsg_type_create();
-      type->func.params->elem[0]->kind = TSG_TYPE_INT;
-      type->func.ret = tsg_type_create();
-      type->func.ret->kind = TSG_TYPE_INT;
-    } else {
-      type->kind = TSG_TYPE_INT;
-    }
-
-    *(p++) = type;
-    node = node->next;
+void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
+                 tsg_type_arr_t* arg_types) {
+  if (func->args->size != arg_types->size) {
+    return;
   }
 
-  func->decl->type = func_type;
-  insert(verifier, func->decl);
-}
+  tsg_type_t* func_type = func->decl->type;
+  func_type->kind = TSG_TYPE_FUNC;
+  func_type->func.params = arg_types;
+  func_type->func.ret = tsg_type_create();
+  func_type->func.ret->kind = TSG_TYPE_INT;
 
-void verify_func_body(tsg_verifier_t* verifier, tsg_func_t* func) {
+  scope_t* scope = verifier->scope;
+  verifier->scope = verifier->func_scope;
   enter_scope(verifier);
 
-  tsg_decl_node_t* node = func->args->head;
-  while (node) {
-    tsg_type_t* type = tsg_type_create();
+  tsg_decl_node_t* decl = func->args->head;
+  tsg_type_t** ptype = arg_types->elem;
+  while (decl) {
+    tsg_type_t* type = *ptype;
+    tsg_type_retain(type);
 
-    if (node->decl->name->buffer[0] == 'f') {
-      type->kind = TSG_TYPE_FUNC;
-      type->func.params = tsg_type_arr_create(1);
-      type->func.params->elem[0] = tsg_type_create();
-      type->func.params->elem[0]->kind = TSG_TYPE_INT;
-      type->func.ret = tsg_type_create();
-      type->func.ret->kind = TSG_TYPE_INT;
-    } else {
-      type->kind = TSG_TYPE_INT;
-    }
+    decl->decl->type = type;
+    insert(verifier, decl->decl);
 
-    node->decl->type = type;
-    insert(verifier, node->decl);
-
-    node = node->next;
+    decl = decl->next;
+    ptype++;
   }
 
   verify_block(verifier, func->body);
+
   leave_scope(verifier);
+  verifier->scope = scope;
 }
 
 void verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
@@ -288,35 +280,63 @@ tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
 tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* callee_type = verify_expr(verifier, expr->call.callee);
-  if (callee_type) {
-    if (callee_type->kind != TSG_TYPE_FUNC) {
-      error(verifier, &(expr->call.callee->loc), "not a function");
-      return NULL;
-    } else if (expr->call.args->size < callee_type->func.params->size) {
+  tsg_type_arr_t* arg_types = verify_expr_list(verifier, expr->call.args);
+
+  if (callee_type == NULL) {
+    return NULL;
+  }
+
+  if (callee_type->kind != TSG_TYPE_FUNC) {
+    error(verifier, &(expr->call.callee->loc), "callee is not a function");
+    return NULL;
+  }
+
+  if (callee_type->func.ret != NULL) {
+    // already typed
+    if (expr->call.args->size < callee_type->func.params->size) {
       error(verifier, &(expr->loc), "too few arguments");
       return NULL;
-    } else if (expr->call.args->size > callee_type->func.params->size) {
+    }
+    if (expr->call.args->size > callee_type->func.params->size) {
       error(verifier, &(expr->loc), "too many arguments");
       return NULL;
     }
-  }
 
-  tsg_type_t** param_type = callee_type->func.params->elem;
-  tsg_expr_node_t* node = expr->call.args->head;
-  while (node) {
-    tsg_type_t* arg_type = verify_expr(verifier, node->expr);
-    if (arg_type && arg_type->kind != (*param_type)->kind) {
-      error(verifier, &(node->expr->loc), "arg type miss match");
+    tsg_type_t** param_type = callee_type->func.params->elem;
+    tsg_type_t** arg_type = arg_types->elem;
+
+    while (arg_type < arg_types->elem + arg_types->size) {
+      if ((*arg_type)->kind != (*param_type)->kind) {
+        error(verifier, &(expr->loc), "arg type miss match");
+      } else if ((*arg_type)->kind == TSG_TYPE_FUNC) {
+        if ((*arg_type)->func.func != (*param_type)->func.func) {
+          error(verifier, &(expr->loc), "cannot apply different function");
+        }
+      }
+
+      param_type++;
+      arg_type++;
     }
-    tsg_type_release(arg_type);
-    param_type++;
-    node = node->next;
+
+    tsg_type_release(callee_type);
+    tsg_type_arr_destroy(arg_types);
+  } else {
+    tsg_func_t* func = callee_type->func.func;
+
+    if (expr->call.args->size < func->args->size) {
+      error(verifier, &(expr->loc), "too few arguments");
+      return NULL;
+    }
+    if (expr->call.args->size > func->args->size) {
+      error(verifier, &(expr->loc), "too many arguments");
+      return NULL;
+    }
+
+    verify_func(verifier, func, arg_types);
   }
 
-  tsg_type_release(callee_type);
-
-  tsg_type_t* type = tsg_type_create();
-  type->kind = TSG_TYPE_INT;
+  tsg_type_t* type = callee_type->func.ret;
+  tsg_type_retain(type);
   return type;
 }
 
@@ -358,4 +378,18 @@ tsg_type_t* verify_expr_number(void) {
   tsg_type_t* type = tsg_type_create();
   type->kind = TSG_TYPE_INT;
   return type;
+}
+
+tsg_type_arr_t* verify_expr_list(tsg_verifier_t* verifier,
+                                 tsg_expr_list_t* list) {
+  tsg_type_arr_t* arr = tsg_type_arr_create(list->size);
+  tsg_type_t** p = arr->elem;
+
+  tsg_expr_node_t* node = list->head;
+  while (node) {
+    *(p++) = verify_expr(verifier, node->expr);
+    node = node->next;
+  }
+
+  return arr;
 }

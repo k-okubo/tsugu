@@ -492,6 +492,7 @@ tsg_expr_list_t* parse_expr_list(tsg_parser_t* parser) {
 
   return result;
 }
+
 tsg_decl_t* parse_decl(tsg_parser_t* parser) {
   tsg_ident_t* ident = parse_ident(parser);
   if (ident == NULL) {
