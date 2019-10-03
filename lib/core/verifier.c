@@ -306,12 +306,16 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
     tsg_type_t** arg_type = arg_types->elem;
 
     while (arg_type < arg_types->elem + arg_types->size) {
-      if ((*arg_type)->kind != (*param_type)->kind) {
-        error(verifier, &(expr->loc), "arg type miss match");
-      } else if ((*arg_type)->kind == TSG_TYPE_FUNC) {
-        if ((*arg_type)->func.func != (*param_type)->func.func) {
-          error(verifier, &(expr->loc), "cannot apply different function");
+      if ((*param_type)->kind == TSG_TYPE_FUNC) {
+        if ((*arg_type)->kind == TSG_TYPE_FUNC &&
+            (*arg_type)->func.ret == NULL) {
+          verify_func(verifier, (*arg_type)->func.func,
+                      tsg_type_arr_dup((*param_type)->func.params));
         }
+      }
+
+      if (tsg_type_equals(*param_type, *arg_type) == false) {
+        error(verifier, &(expr->loc), "arg type miss match");
       }
 
       param_type++;

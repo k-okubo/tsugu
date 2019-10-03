@@ -2,6 +2,7 @@
 #ifndef TSUGU_CORE_TYPE_H
 #define TSUGU_CORE_TYPE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -39,8 +40,11 @@ struct tsg_type_arr_s {
 tsg_type_t* tsg_type_create(void);
 void tsg_type_retain(tsg_type_t* type);
 void tsg_type_release(tsg_type_t* type);
+bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b);
 
 tsg_type_arr_t* tsg_type_arr_create(size_t size);
+tsg_type_arr_t* tsg_type_arr_dup(const tsg_type_arr_t* arr);
 void tsg_type_arr_destroy(tsg_type_arr_t* arr);
+bool tsg_type_arr_equals(tsg_type_arr_t* a, tsg_type_arr_t* b);
 
 #endif
