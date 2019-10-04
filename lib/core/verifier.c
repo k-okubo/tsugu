@@ -1,28 +1,13 @@
 
 #include <tsugu/core/verifier.h>
 
-#include "symtbl.h"
 #include <tsugu/core/memory.h>
 #include <string.h>
 
-typedef struct scope_s scope_t;
-struct scope_s {
-  tsg_symtbl_t* symtbl;
-  int32_t depth;
-  int32_t size;
-  scope_t* outer;
-};
-
 struct tsg_verifier_s {
-  scope_t* scope;
   tsg_errlist_t errors;
-  scope_t* func_scope;
 };
 
-static void enter_scope(tsg_verifier_t* verifier);
-static void leave_scope(tsg_verifier_t* verifier);
-static bool insert(tsg_verifier_t* verifier, tsg_decl_t* decl);
-static tsg_decl_t* lookup(tsg_verifier_t* verifier, tsg_ident_t* name);
 static void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
                   const char* format, ...);
 
@@ -41,8 +26,7 @@ static tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier,
 static tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr);
 static tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier,
                                       tsg_expr_t* expr);
-static tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier,
-                                        tsg_expr_t* expr);
+static tsg_type_t* verify_expr_variable(tsg_expr_t* expr);
 static tsg_type_t* verify_expr_number(void);
 
 static tsg_type_arr_t* verify_expr_list(tsg_verifier_t* verifier,
@@ -54,79 +38,18 @@ tsg_verifier_t* tsg_verifier_create(void) {
     return NULL;
   }
 
-  verifier->scope = NULL;
   tsg_errlist_init(&(verifier->errors));
-  verifier->func_scope = NULL;
 
   return verifier;
 }
 
 void tsg_verifier_destroy(tsg_verifier_t* verifier) {
-  scope_t* scope = verifier->scope;
-  while (scope) {
-    scope_t* next = scope->outer;
-    tsg_symtbl_destroy(scope->symtbl);
-    tsg_free(scope);
-    scope = next;
-  }
-
   tsg_errlist_release(&(verifier->errors));
   tsg_free(verifier);
 }
 
 void tsg_verifier_error(const tsg_verifier_t* verifier, tsg_errlist_t* errors) {
   *errors = verifier->errors;
-}
-
-void enter_scope(tsg_verifier_t* verifier) {
-  int32_t depth = 0;
-  if (verifier->scope) {
-    depth = verifier->scope->depth + 1;
-  }
-
-  scope_t* scope = tsg_malloc_obj(scope_t);
-  scope->symtbl = tsg_symtbl_create();
-  scope->depth = depth;
-  scope->size = 0;
-  scope->outer = verifier->scope;
-
-  verifier->scope = scope;
-}
-
-void leave_scope(tsg_verifier_t* verifier) {
-  scope_t* scope = verifier->scope;
-  verifier->scope = scope->outer;
-
-  tsg_symtbl_destroy(scope->symtbl);
-  tsg_free(scope);
-}
-
-bool insert(tsg_verifier_t* verifier, tsg_decl_t* decl) {
-  scope_t* scope = verifier->scope;
-
-  if (tsg_symtbl_insert(scope->symtbl, decl) == false) {
-    error(verifier, &(decl->name->loc), "redefinition '%I'", decl->name);
-    return false;
-  } else {
-    decl->depth = scope->depth;
-    decl->index = scope->size;
-    scope->size += 1;
-    return true;
-  }
-}
-
-tsg_decl_t* lookup(tsg_verifier_t* verifier, tsg_ident_t* name) {
-  scope_t* scope = verifier->scope;
-  while (scope) {
-    tsg_decl_t* ret = NULL;
-    if (tsg_symtbl_lookup(scope->symtbl, name, &ret)) {
-      return ret;
-    }
-    scope = scope->outer;
-  }
-
-  error(verifier, &(name->loc), "undeclared '%I'", name);
-  return NULL;
 }
 
 void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
@@ -145,9 +68,6 @@ bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast) {
 void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
   tsg_func_t* main_func = NULL;
 
-  enter_scope(verifier);
-  verifier->func_scope = verifier->scope;
-
   tsg_func_node_t* node = ast->functions->head;
   while (node) {
     tsg_type_t* type = tsg_type_create();
@@ -156,8 +76,6 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
     type->func.ret = NULL;
     type->func.func = node->func;
     node->func->decl->type = type;
-
-    insert(verifier, node->func->decl);
 
     if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_func = node->func;
@@ -168,8 +86,6 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
 
   tsg_type_arr_t* main_arg = tsg_type_arr_create(0);
   verify_func(verifier, main_func, main_arg);
-
-  leave_scope(verifier);
 }
 
 void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
@@ -184,10 +100,6 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   func_type->func.ret = tsg_type_create();
   func_type->func.ret->kind = TSG_TYPE_PEND;
 
-  scope_t* scope = verifier->scope;
-  verifier->scope = verifier->func_scope;
-  enter_scope(verifier);
-
   tsg_decl_node_t* decl = func->args->head;
   tsg_type_t** ptype = arg_types->elem;
   while (decl) {
@@ -195,7 +107,6 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
     tsg_type_retain(type);
 
     decl->decl->type = type;
-    insert(verifier, decl->decl);
 
     decl = decl->next;
     ptype++;
@@ -204,9 +115,6 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   tsg_type_t* ret_type = verify_block(verifier, func->body);
   tsg_type_release(func_type->func.ret);
   func_type->func.ret = ret_type;
-
-  leave_scope(verifier);
-  verifier->scope = scope;
 }
 
 tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
@@ -222,7 +130,6 @@ tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
     node = node->next;
   }
 
-  block->n_decls = verifier->scope->size;
   return last_stmt_type;
 }
 
@@ -239,7 +146,6 @@ tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
 tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   tsg_type_t* type = verify_expr(verifier, stmt->val.expr);
   stmt->val.decl->type = type;
-  insert(verifier, stmt->val.decl);
 
   tsg_type_retain(type);
   return type;
@@ -261,7 +167,7 @@ tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
       return verify_expr_ifelse(verifier, expr);
 
     case TSG_EXPR_VARIABLE:
-      return verify_expr_variable(verifier, expr);
+      return verify_expr_variable(expr);
 
     case TSG_EXPR_NUMBER:
       return verify_expr_number();
@@ -375,13 +281,8 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   }
   tsg_type_release(cond_type);
 
-  enter_scope(verifier);
   tsg_type_t* thn_type = verify_block(verifier, expr->ifelse.thn);
-  leave_scope(verifier);
-
-  enter_scope(verifier);
   tsg_type_t* els_type = verify_block(verifier, expr->ifelse.els);
-  leave_scope(verifier);
 
   if (thn_type == NULL || els_type == NULL) {
     return NULL;
@@ -407,17 +308,11 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   }
 }
 
-tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier, tsg_expr_t* expr) {
-  tsg_decl_t* decl = lookup(verifier, expr->variable.name);
-  expr->variable.resolved = decl;
-
-  if (decl == NULL) {
-    return NULL;
-  } else {
-    tsg_type_t* var_type = decl->type;
-    tsg_type_retain(var_type);
-    return var_type;
-  }
+tsg_type_t* verify_expr_variable(tsg_expr_t* expr) {
+  tsg_decl_t* decl = expr->variable.resolved;
+  tsg_type_t* var_type = decl->type;
+  tsg_type_retain(var_type);
+  return var_type;
 }
 
 tsg_type_t* verify_expr_number(void) {

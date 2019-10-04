@@ -3,6 +3,7 @@ add_library(core
   error.c
   memory.c
   parser.c
+  resolver.c
   scanner.c
   symtbl.c
   token.c

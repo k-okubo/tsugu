@@ -1,5 +1,6 @@
 
 #include <tsugu/core/parser.h>
+#include <tsugu/core/resolver.h>
 #include <tsugu/core/scanner.h>
 #include <tsugu/core/verifier.h>
 #include <tsugu/engine/engine.h>
@@ -74,6 +75,13 @@ int main(void) {
   tsg_scanner_destroy(scanner);
   free(buffer);
 
+  tsg_resolver_t* resolver = tsg_resolver_create();
+  if (tsg_resolver_resolve(resolver, ast) == false) {
+    tsg_resolver_error(resolver, &errors);
+    print_errors(&errors);
+    return 1;
+  }
+
   tsg_verifier_t* verifier = tsg_verifier_create();
   if (tsg_verifier_verify(verifier, ast) == false) {
     tsg_verifier_error(verifier, &errors);
@@ -83,6 +91,7 @@ int main(void) {
   printf("syntax ok\n");
 
   tsg_verifier_destroy(verifier);
+  tsg_resolver_destroy(resolver);
 
   int32_t ret = tsg_engine_run_ast(ast);
   printf("result = %" PRIi32 "\n", ret);
