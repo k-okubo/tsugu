@@ -1,5 +1,5 @@
 
-#include "resolver.h"
+#include "symtbl.h"
 
 #include <tsugu/core/memory.h>
 #include <inttypes.h>
@@ -13,15 +13,15 @@ struct record_s {
   tsg_decl_t* payload;
 };
 
-struct tsg_resolver_s {
+struct tsg_symtbl_s {
   record_t* table;
   int_fast8_t hash_bits;
 };
 
-static void alloc_table(tsg_resolver_t* resolver, int_fast8_t hash_bits);
-static record_t* find_record(tsg_resolver_t* resolver, tsg_ident_t* key);
-static void rehash_table(tsg_resolver_t* resolver);
-static bool restore_entries(record_t* src, size_t nslots, tsg_resolver_t* dst);
+static void alloc_table(tsg_symtbl_t* symtbl, int_fast8_t hash_bits);
+static record_t* find_record(tsg_symtbl_t* symtbl, tsg_ident_t* key);
+static void rehash_table(tsg_symtbl_t* symtbl);
+static bool restore_entries(record_t* src, size_t nslots, tsg_symtbl_t* dst);
 
 static size_t table_nslots(int_fast8_t hash_bits);
 static size_t table_index(int_fast8_t hash_bits, tsg_ident_t* ident);
@@ -29,37 +29,37 @@ static uint64_t hash_mask(int_fast8_t hash_bits);
 static uint64_t ident_hash(tsg_ident_t* ident);
 static bool same_ident(tsg_ident_t* ident1, tsg_ident_t* ident2);
 
-tsg_resolver_t* tsg_resolver_create(void) {
-  tsg_resolver_t* resolver = tsg_malloc_obj(tsg_resolver_t);
-  if (resolver == NULL) {
-    return resolver;
+tsg_symtbl_t* tsg_symtbl_create(void) {
+  tsg_symtbl_t* symtbl = tsg_malloc_obj(tsg_symtbl_t);
+  if (symtbl == NULL) {
+    return symtbl;
   }
 
-  alloc_table(resolver, NAMETABLE_INITIAL_HASH_BITS);
+  alloc_table(symtbl, NAMETABLE_INITIAL_HASH_BITS);
 
-  return resolver;
+  return symtbl;
 }
 
-void alloc_table(tsg_resolver_t* resolver, int_fast8_t hash_bits) {
+void alloc_table(tsg_symtbl_t* symtbl, int_fast8_t hash_bits) {
   size_t nslots = table_nslots(hash_bits);
-  resolver->table = tsg_malloc_arr(record_t, nslots);
-  resolver->hash_bits = hash_bits;
-  tsg_resolver_clear(resolver);
+  symtbl->table = tsg_malloc_arr(record_t, nslots);
+  symtbl->hash_bits = hash_bits;
+  tsg_symtbl_clear(symtbl);
 }
 
-void tsg_resolver_destroy(tsg_resolver_t* resolver) {
-  tsg_free(resolver->table);
-  tsg_free(resolver);
+void tsg_symtbl_destroy(tsg_symtbl_t* symtbl) {
+  tsg_free(symtbl->table);
+  tsg_free(symtbl);
 }
 
-void tsg_resolver_clear(tsg_resolver_t* resolver) {
-  size_t nslots = table_nslots(resolver->hash_bits);
-  memset(resolver->table, 0, sizeof(record_t) * nslots);
+void tsg_symtbl_clear(tsg_symtbl_t* symtbl) {
+  size_t nslots = table_nslots(symtbl->hash_bits);
+  memset(symtbl->table, 0, sizeof(record_t) * nslots);
 }
 
-bool tsg_resolver_insert(tsg_resolver_t* resolver, tsg_decl_t* decl) {
+bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_decl_t* decl) {
   while (true) {
-    record_t* record = find_record(resolver, decl->name);
+    record_t* record = find_record(symtbl, decl->name);
 
     if (record != NULL) {
       if (record->payload != NULL) {
@@ -72,14 +72,14 @@ bool tsg_resolver_insert(tsg_resolver_t* resolver, tsg_decl_t* decl) {
       }
     } else {
       // table full
-      rehash_table(resolver);
+      rehash_table(symtbl);
     }
   }
 }
 
-bool tsg_resolver_lookup(tsg_resolver_t* resolver, tsg_ident_t* key,
-                         tsg_decl_t** outval) {
-  record_t* record = find_record(resolver, key);
+bool tsg_symtbl_lookup(tsg_symtbl_t* symtbl, tsg_ident_t* key,
+                       tsg_decl_t** outval) {
+  record_t* record = find_record(symtbl, key);
 
   if (record != NULL) {
     if (record->payload != NULL) {
@@ -91,12 +91,12 @@ bool tsg_resolver_lookup(tsg_resolver_t* resolver, tsg_ident_t* key,
   return false;
 }
 
-record_t* find_record(tsg_resolver_t* resolver, tsg_ident_t* key) {
-  size_t base_idx = table_index(resolver->hash_bits, key);
-  uint64_t mask = hash_mask(resolver->hash_bits);
+record_t* find_record(tsg_symtbl_t* symtbl, tsg_ident_t* key) {
+  size_t base_idx = table_index(symtbl->hash_bits, key);
+  uint64_t mask = hash_mask(symtbl->hash_bits);
 
   for (size_t i = 0; i < NAMETABLE_LINEAR_SEARCH_LIMIT; i++) {
-    record_t* record = resolver->table + ((base_idx + i) & mask);
+    record_t* record = symtbl->table + ((base_idx + i) & mask);
 
     if (record->payload == NULL) {
       return record;
@@ -110,25 +110,25 @@ record_t* find_record(tsg_resolver_t* resolver, tsg_ident_t* key) {
   return NULL;
 }
 
-void rehash_table(tsg_resolver_t* resolver) {
-  record_t* old_table = resolver->table;
-  size_t old_nslots = table_nslots(resolver->hash_bits);
+void rehash_table(tsg_symtbl_t* symtbl) {
+  record_t* old_table = symtbl->table;
+  size_t old_nslots = table_nslots(symtbl->hash_bits);
 
-  int_fast8_t hash_bits = resolver->hash_bits;
+  int_fast8_t hash_bits = symtbl->hash_bits;
 
   while (true) {
     hash_bits += 1;
-    alloc_table(resolver, hash_bits);
-    if (restore_entries(old_table, old_nslots, resolver)) {
+    alloc_table(symtbl, hash_bits);
+    if (restore_entries(old_table, old_nslots, symtbl)) {
       break;
     }
-    tsg_free(resolver->table);
+    tsg_free(symtbl->table);
   }
 
   tsg_free(old_table);
 }
 
-bool restore_entries(record_t* src_rec, size_t nslots, tsg_resolver_t* dst) {
+bool restore_entries(record_t* src_rec, size_t nslots, tsg_symtbl_t* dst) {
   record_t* end = src_rec + nslots;
 
   while (src_rec < end) {

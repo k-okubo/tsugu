@@ -1,13 +1,13 @@
 
 #include <tsugu/core/verifier.h>
 
-#include "resolver.h"
+#include "symtbl.h"
 #include <tsugu/core/memory.h>
 #include <string.h>
 
 typedef struct scope_s scope_t;
 struct scope_s {
-  tsg_resolver_t* resolver;
+  tsg_symtbl_t* symtbl;
   int32_t depth;
   int32_t size;
   scope_t* outer;
@@ -65,7 +65,7 @@ void tsg_verifier_destroy(tsg_verifier_t* verifier) {
   scope_t* scope = verifier->scope;
   while (scope) {
     scope_t* next = scope->outer;
-    tsg_resolver_destroy(scope->resolver);
+    tsg_symtbl_destroy(scope->symtbl);
     tsg_free(scope);
     scope = next;
   }
@@ -85,7 +85,7 @@ void enter_scope(tsg_verifier_t* verifier) {
   }
 
   scope_t* scope = tsg_malloc_obj(scope_t);
-  scope->resolver = tsg_resolver_create();
+  scope->symtbl = tsg_symtbl_create();
   scope->depth = depth;
   scope->size = 0;
   scope->outer = verifier->scope;
@@ -97,14 +97,14 @@ void leave_scope(tsg_verifier_t* verifier) {
   scope_t* scope = verifier->scope;
   verifier->scope = scope->outer;
 
-  tsg_resolver_destroy(scope->resolver);
+  tsg_symtbl_destroy(scope->symtbl);
   tsg_free(scope);
 }
 
 bool insert(tsg_verifier_t* verifier, tsg_decl_t* decl) {
   scope_t* scope = verifier->scope;
 
-  if (tsg_resolver_insert(scope->resolver, decl) == false) {
+  if (tsg_symtbl_insert(scope->symtbl, decl) == false) {
     error(verifier, &(decl->name->loc), "redefinition '%I'", decl->name);
     return false;
   } else {
@@ -119,7 +119,7 @@ tsg_decl_t* lookup(tsg_verifier_t* verifier, tsg_ident_t* name) {
   scope_t* scope = verifier->scope;
   while (scope) {
     tsg_decl_t* ret = NULL;
-    if (tsg_resolver_lookup(scope->resolver, name, &ret)) {
+    if (tsg_symtbl_lookup(scope->symtbl, name, &ret)) {
       return ret;
     }
     scope = scope->outer;
