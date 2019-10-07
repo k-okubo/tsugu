@@ -2,9 +2,12 @@
 #include <tsugu/core/verifier.h>
 
 #include <tsugu/core/memory.h>
+#include <tsugu/core/tyenv.h>
+#include <tsugu/core/type.h>
 #include <string.h>
 
 struct tsg_verifier_s {
+  tsg_tyenv_t* tyenv;
   tsg_errlist_t errors;
 };
 
@@ -26,7 +29,8 @@ static tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier,
 static tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr);
 static tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier,
                                       tsg_expr_t* expr);
-static tsg_type_t* verify_expr_variable(tsg_expr_t* expr);
+static tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier,
+                                        tsg_expr_t* expr);
 static tsg_type_t* verify_expr_number(void);
 
 static tsg_type_arr_t* verify_expr_list(tsg_verifier_t* verifier,
@@ -38,6 +42,7 @@ tsg_verifier_t* tsg_verifier_create(void) {
     return NULL;
   }
 
+  verifier->tyenv = NULL;
   tsg_errlist_init(&(verifier->errors));
 
   return verifier;
@@ -60,7 +65,10 @@ void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
   va_end(args);
 }
 
-bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast) {
+bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast,
+                         tsg_tyenv_t** tyenv) {
+  *tyenv = tsg_tyenv_create(ast->n_types);
+  verifier->tyenv = *tyenv;
   verify_ast(verifier, ast);
   return verifier->errors.head == NULL;
 }
@@ -75,7 +83,7 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
     type->func.params = NULL;
     type->func.ret = NULL;
     type->func.func = node->func;
-    node->func->decl->type = type;
+    tsg_tyenv_set(verifier->tyenv, node->func->decl->type_id, type);
 
     if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_func = node->func;
@@ -94,7 +102,7 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
     return;
   }
 
-  tsg_type_t* func_type = func->decl->type;
+  tsg_type_t* func_type = tsg_tyenv_get(verifier->tyenv, func->decl->type_id);
   func_type->kind = TSG_TYPE_FUNC;
   func_type->func.params = arg_types;
   func_type->func.ret = tsg_type_create();
@@ -105,8 +113,7 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   while (decl) {
     tsg_type_t* type = *ptype;
     tsg_type_retain(type);
-
-    decl->decl->type = type;
+    tsg_tyenv_set(verifier->tyenv, decl->decl->type_id, type);
 
     decl = decl->next;
     ptype++;
@@ -145,7 +152,7 @@ tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
 
 tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   tsg_type_t* type = verify_expr(verifier, stmt->val.expr);
-  stmt->val.decl->type = type;
+  tsg_tyenv_set(verifier->tyenv, stmt->val.decl->type_id, type);
 
   tsg_type_retain(type);
   return type;
@@ -167,7 +174,7 @@ tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
       return verify_expr_ifelse(verifier, expr);
 
     case TSG_EXPR_VARIABLE:
-      return verify_expr_variable(expr);
+      return verify_expr_variable(verifier, expr);
 
     case TSG_EXPR_NUMBER:
       return verify_expr_number();
@@ -308,9 +315,9 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   }
 }
 
-tsg_type_t* verify_expr_variable(tsg_expr_t* expr) {
+tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_decl_t* decl = expr->variable.resolved;
-  tsg_type_t* var_type = decl->type;
+  tsg_type_t* var_type = tsg_tyenv_get(verifier->tyenv, decl->type_id);
   tsg_type_retain(var_type);
   return var_type;
 }

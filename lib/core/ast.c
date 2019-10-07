@@ -144,7 +144,6 @@ void destroy_decl(tsg_decl_t* decl) {
   }
 
   destroy_ident(decl->name);
-  tsg_type_release(decl->type);
   tsg_free(decl);
 }
 

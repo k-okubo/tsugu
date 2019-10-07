@@ -9,7 +9,9 @@ using namespace tsugu;
 
 typedef int32_t (*main_func_t)(void);
 
-int32_t Compiler::run(tsg_ast_t* ast) {
+int32_t Compiler::run(tsg_ast_t* ast, tsg_tyenv_t* env) {
+  this->tyenv = env;
+
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
 
@@ -125,7 +127,7 @@ void Compiler::buildAst(tsg_ast_t* ast) {
 
 void Compiler::buildFuncProto(tsg_func_t* func) {
   tsg_decl_t* decl = func->decl;
-  auto func_type = convFuncTy(decl->type);
+  auto func_type = convFuncTy(tsg_tyenv_get(tyenv, decl->type_id));
   auto llvm_func =
       llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
                              tsg_ident_cstr(decl->name), module);

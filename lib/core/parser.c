@@ -12,6 +12,7 @@ struct tsg_parser_s {
   tsg_token_t token;
   tsg_errlist_t errors;
   int32_t last_error_line;
+  int32_t n_types;
 };
 
 static void next(tsg_parser_t* parser);
@@ -124,6 +125,7 @@ tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
   tsg_ast_t* ast = tsg_malloc_obj(tsg_ast_t);
   ast->functions = parse_func_list(parser);
   expect(parser, TSG_TOKEN_EOF);
+  ast->n_types = parser->n_types;
 
   return ast;
 }
@@ -169,7 +171,7 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
 
   tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
   decl->name = name;
-  decl->type = NULL;
+  decl->type_id = parser->n_types++;
   decl->depth = -1;
   decl->index = -1;
 
@@ -297,6 +299,7 @@ tsg_expr_t* parse_expr_binary(tsg_parser_t* parser, int lowest_prec) {
 
     tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
     expr->kind = TSG_EXPR_BINARY;
+    expr->type_id = parser->n_types++;
     expr->loc.begin = lhs->loc.begin;
     expr->loc.end = rhs->loc.end;
     expr->binary.op = op;
@@ -336,6 +339,7 @@ tsg_expr_t* parse_expr_call(tsg_parser_t* parser, tsg_expr_t* operand) {
 
   tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
   expr->kind = TSG_EXPR_CALL;
+  expr->type_id = parser->n_types++;
   expr->loc.begin = operand->loc.begin;
   expr->loc.end = end;
   expr->call.callee = operand;
@@ -410,6 +414,7 @@ tsg_expr_t* parse_expr_ifelse(tsg_parser_t* parser) {
 
   tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
   expr->kind = TSG_EXPR_IFELSE;
+  expr->type_id = parser->n_types++;
   expr->loc.begin = begin;
   expr->loc.end = end;
   expr->ifelse.cond = cond;
@@ -427,6 +432,7 @@ tsg_expr_t* parse_expr_variable(tsg_parser_t* parser) {
 
   tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
   expr->kind = TSG_EXPR_VARIABLE;
+  expr->type_id = parser->n_types++;
   expr->loc = ident->loc;
   expr->variable.name = ident;
   expr->variable.resolved = NULL;
@@ -450,6 +456,7 @@ tsg_expr_t* parse_expr_number(tsg_parser_t* parser) {
 
   tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
   expr->kind = TSG_EXPR_NUMBER;
+  expr->type_id = parser->n_types++;
   expr->loc = parser->token.loc;
   expr->number.value = number;
   next(parser);
@@ -501,7 +508,7 @@ tsg_decl_t* parse_decl(tsg_parser_t* parser) {
 
   tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
   decl->name = ident;
-  decl->type = NULL;
+  decl->type_id = parser->n_types++;
   decl->depth = -1;
   decl->index = -1;
 

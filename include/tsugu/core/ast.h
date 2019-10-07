@@ -3,7 +3,6 @@
 #define TSUGU_CORE_AST_H
 
 #include <tsugu/core/token.h>
-#include <tsugu/core/type.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +40,7 @@ typedef struct tsg_decl_node_s tsg_decl_node_t;
 
 struct tsg_ast_s {
   tsg_func_list_t* functions;
+  int32_t n_types;
 };
 
 struct tsg_func_s {
@@ -100,6 +100,7 @@ struct tsg_expr_number_s {
 
 struct tsg_expr_s {
   tsg_expr_kind_t kind;
+  int32_t type_id;
   tsg_source_range_t loc;
 
   union {
@@ -113,7 +114,7 @@ struct tsg_expr_s {
 
 struct tsg_decl_s {
   tsg_ident_t* name;
-  tsg_type_t* type;
+  int32_t type_id;
   int32_t depth;
   int32_t index;
 };

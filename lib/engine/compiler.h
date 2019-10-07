@@ -3,6 +3,7 @@
 #define TSUGU_ENGINE_COMPILER_H
 
 #include <tsugu/core/ast.h>
+#include <tsugu/core/tyenv.h>
 #include <llvm/IR/IRBuilder.h>
 
 namespace tsugu {
@@ -12,12 +13,13 @@ class Compiler {
   Compiler() : context(), builder(context), module(nullptr) {}
   virtual ~Compiler() {}
 
-  int32_t run(tsg_ast_t* ast);
+  int32_t run(tsg_ast_t* ast, tsg_tyenv_t* env);
 
  private:
   llvm::LLVMContext context;
   llvm::IRBuilder<> builder;
   llvm::Module* module;
+  tsg_tyenv_t* tyenv;
 
   std::vector<std::vector<llvm::Value*>> value_table;
   std::vector<llvm::Function*> function_table;

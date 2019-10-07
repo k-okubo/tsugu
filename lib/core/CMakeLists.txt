@@ -7,6 +7,7 @@ add_library(core
   scanner.c
   symtbl.c
   token.c
+  tyenv.c
   type.c
   verifier.c
 )
