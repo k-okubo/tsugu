@@ -77,7 +77,8 @@ llvm::Type* Compiler::convTy(tsg_type_t* type) {
       return builder.getInt32Ty();
 
     case TSG_TYPE_FUNC:
-      return convFuncTy(type)->getPointerTo();
+      // return convFuncTy(type)->getPointerTo();
+      return builder.getInt32Ty();
 
     case TSG_TYPE_PEND:
       return nullptr;
@@ -109,36 +110,42 @@ std::vector<llvm::Type*> Compiler::convTyArr(tsg_type_arr_t* arr) {
 void Compiler::buildAst(tsg_ast_t* ast) {
   enterScope(ast->functions->size);
   function_table = std::vector<llvm::Function*>(ast->functions->size, nullptr);
+  tsg_func_t* main_func = nullptr;
 
   auto node = ast->functions->head;
   while (node) {
-    buildFuncProto(node->func);
+    insert(node->func->decl, builder.getInt32(0));
+    if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
+      main_func = node->func;
+    }
     node = node->next;
   }
 
-  node = ast->functions->head;
-  while (node) {
-    buildFuncBody(node->func);
-    node = node->next;
-  }
-
+  fetchFunc(main_func);
   leaveScope();
 }
 
-void Compiler::buildFuncProto(tsg_func_t* func) {
+llvm::Function* Compiler::fetchFunc(tsg_func_t* func) {
+  llvm::Function* llvm_func = function_table[func->decl->index];
+  if (llvm_func) {
+    return llvm_func;
+  }
+
+  llvm_func = buildFunc(func);
+  return llvm_func;
+}
+
+llvm::Function* Compiler::buildFunc(tsg_func_t* func) {
+  auto prev_scope = std::move(value_table);
+  value_table.assign(1, prev_scope[0]);
+
   tsg_decl_t* decl = func->decl;
   auto func_type = convFuncTy(tsg_tyenv_get(tyenv, decl->type_id));
   auto llvm_func =
       llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
                              tsg_ident_cstr(decl->name), module);
 
-  insert(decl, llvm_func);
-  function_table[decl->index] = llvm_func;
-}
-
-void Compiler::buildFuncBody(tsg_func_t* func) {
-  llvm::Function* llvm_func = function_table[func->decl->index];
-
+  function_table[func->decl->index] = llvm_func;
   auto body = llvm::BasicBlock::Create(context, "entry", llvm_func);
   builder.SetInsertPoint(body);
 
@@ -164,6 +171,10 @@ void Compiler::buildFuncBody(tsg_func_t* func) {
   if (llvm::verifyFunction(*llvm_func, &(llvm::errs()))) {
     llvm::errs() << "verifyFunction Failed\n";
   }
+
+  value_table = std::move(prev_scope);
+
+  return llvm_func;
 }
 
 llvm::Value* Compiler::buildBlock(tsg_block_t* block) {
@@ -273,7 +284,7 @@ llvm::Value* Compiler::buildExprBinary(tsg_expr_t* expr) {
 }
 
 llvm::Value* Compiler::buildExprCall(tsg_expr_t* expr) {
-  llvm::Value* callee = buildExpr(expr->call.callee);
+  buildExpr(expr->call.callee);
 
   std::vector<llvm::Value*> args;
   auto node = expr->call.args->head;
@@ -282,6 +293,11 @@ llvm::Value* Compiler::buildExprCall(tsg_expr_t* expr) {
     args.push_back(value);
     node = node->next;
   }
+
+  auto block = builder.GetInsertBlock();
+  tsg_type_t* callee_type = tsg_tyenv_get(tyenv, expr->call.callee->type_id);
+  llvm::Value* callee = fetchFunc(callee_type->func.func);
+  builder.SetInsertPoint(block);
 
   return builder.CreateCall(callee, args);
 }

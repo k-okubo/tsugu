@@ -31,7 +31,8 @@ static tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier,
                                       tsg_expr_t* expr);
 static tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier,
                                         tsg_expr_t* expr);
-static tsg_type_t* verify_expr_number(void);
+static tsg_type_t* verify_expr_number(tsg_verifier_t* verifier,
+                                      tsg_expr_t* expr);
 
 static tsg_type_arr_t* verify_expr_list(tsg_verifier_t* verifier,
                                         tsg_expr_list_t* list);
@@ -177,7 +178,7 @@ tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
       return verify_expr_variable(verifier, expr);
 
     case TSG_EXPR_NUMBER:
-      return verify_expr_number();
+      return verify_expr_number(verifier, expr);
   }
 }
 
@@ -211,6 +212,7 @@ tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_release(lhs_type);
   tsg_type_release(rhs_type);
 
+  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
   return type;
 }
 
@@ -277,6 +279,8 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
   tsg_type_t* type = callee_type->func.ret;
   tsg_type_retain(type);
+
+  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
   return type;
 }
 
@@ -297,13 +301,16 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
   if (thn_type->kind == TSG_TYPE_PEND && els_type->kind != TSG_TYPE_PEND) {
     tsg_type_release(thn_type);
+    tsg_tyenv_set(verifier->tyenv, expr->type_id, els_type);
     return els_type;
   } else if (thn_type->kind != TSG_TYPE_PEND &&
              els_type->kind == TSG_TYPE_PEND) {
     tsg_type_release(els_type);
+    tsg_tyenv_set(verifier->tyenv, expr->type_id, thn_type);
     return thn_type;
   } else if (tsg_type_equals(thn_type, els_type)) {
     tsg_type_release(els_type);
+    tsg_tyenv_set(verifier->tyenv, expr->type_id, thn_type);
     return thn_type;
   } else {
     error(verifier, &(expr->loc),
@@ -319,12 +326,14 @@ tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_decl_t* decl = expr->variable.resolved;
   tsg_type_t* var_type = tsg_tyenv_get(verifier->tyenv, decl->type_id);
   tsg_type_retain(var_type);
+  tsg_tyenv_set(verifier->tyenv, expr->type_id, var_type);
   return var_type;
 }
 
-tsg_type_t* verify_expr_number(void) {
+tsg_type_t* verify_expr_number(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* type = tsg_type_create();
   type->kind = TSG_TYPE_INT;
+  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
   return type;
 }
 

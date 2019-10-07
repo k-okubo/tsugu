@@ -34,8 +34,8 @@ class Compiler {
   std::vector<llvm::Type*> convTyArr(tsg_type_arr_t* arr);
 
   void buildAst(tsg_ast_t* ast);
-  void buildFuncProto(tsg_func_t* func);
-  void buildFuncBody(tsg_func_t* func);
+  llvm::Function* fetchFunc(tsg_func_t* func);
+  llvm::Function* buildFunc(tsg_func_t* func);
   llvm::Value* buildBlock(tsg_block_t* block);
 
   llvm::Value* buildStmt(tsg_stmt_t* stmt);
