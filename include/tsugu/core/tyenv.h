@@ -10,7 +10,7 @@ extern "C" {
 
 typedef struct tsg_tyenv_s tsg_tyenv_t;
 
-tsg_tyenv_t* tsg_tyenv_create(int32_t size);
+tsg_tyenv_t* tsg_tyenv_create(tsg_tyenv_t* outer, int32_t size);
 void tsg_tyenv_destroy(tsg_tyenv_t* tyenv);
 
 void tsg_tyenv_set(tsg_tyenv_t* tyenv, int32_t id, tsg_type_t* type);

@@ -7,7 +7,8 @@
 #include <string.h>
 
 struct tsg_verifier_s {
-  tsg_tyenv_t* tyenv;
+  tsg_tyenv_t* root_env;
+  tsg_tyenv_t* func_env;
   tsg_errlist_t errors;
 };
 
@@ -43,7 +44,8 @@ tsg_verifier_t* tsg_verifier_create(void) {
     return NULL;
   }
 
-  verifier->tyenv = NULL;
+  verifier->root_env = NULL;
+  verifier->func_env = NULL;
   tsg_errlist_init(&(verifier->errors));
 
   return verifier;
@@ -67,9 +69,9 @@ void error(tsg_verifier_t* verifier, tsg_source_range_t* loc,
 }
 
 bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast,
-                         tsg_tyenv_t** tyenv) {
-  *tyenv = tsg_tyenv_create(ast->n_types);
-  verifier->tyenv = *tyenv;
+                         tsg_tyenv_t** root_env) {
+  *root_env = tsg_tyenv_create(NULL, ast->functions->size);
+  verifier->root_env = *root_env;
   verify_ast(verifier, ast);
   return verifier->errors.head == NULL;
 }
@@ -84,7 +86,8 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
     type->func.params = NULL;
     type->func.ret = NULL;
     type->func.func = node->func;
-    tsg_tyenv_set(verifier->tyenv, node->func->decl->type_id, type);
+    type->func.tyenv = NULL;
+    tsg_tyenv_set(verifier->root_env, node->func->decl->type_id, type);
 
     if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_func = node->func;
@@ -103,18 +106,23 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
     return;
   }
 
-  tsg_type_t* func_type = tsg_tyenv_get(verifier->tyenv, func->decl->type_id);
+  tsg_tyenv_t* prev_env = verifier->func_env;
+  verifier->func_env = tsg_tyenv_create(verifier->root_env, func->n_types);
+
+  tsg_type_t* func_type =
+      tsg_tyenv_get(verifier->root_env, func->decl->type_id);
   func_type->kind = TSG_TYPE_FUNC;
   func_type->func.params = arg_types;
   func_type->func.ret = tsg_type_create();
   func_type->func.ret->kind = TSG_TYPE_PEND;
+  func_type->func.tyenv = verifier->func_env;
 
   tsg_decl_node_t* decl = func->args->head;
   tsg_type_t** ptype = arg_types->elem;
   while (decl) {
     tsg_type_t* type = *ptype;
     tsg_type_retain(type);
-    tsg_tyenv_set(verifier->tyenv, decl->decl->type_id, type);
+    tsg_tyenv_set(verifier->func_env, decl->decl->type_id, type);
 
     decl = decl->next;
     ptype++;
@@ -123,6 +131,8 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   tsg_type_t* ret_type = verify_block(verifier, func->body);
   tsg_type_release(func_type->func.ret);
   func_type->func.ret = ret_type;
+
+  verifier->func_env = prev_env;
 }
 
 tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
@@ -153,7 +163,7 @@ tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
 
 tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
   tsg_type_t* type = verify_expr(verifier, stmt->val.expr);
-  tsg_tyenv_set(verifier->tyenv, stmt->val.decl->type_id, type);
+  tsg_tyenv_set(verifier->func_env, stmt->val.decl->type_id, type);
 
   tsg_type_retain(type);
   return type;
@@ -212,7 +222,7 @@ tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_release(lhs_type);
   tsg_type_release(rhs_type);
 
-  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
+  tsg_tyenv_set(verifier->func_env, expr->type_id, type);
   return type;
 }
 
@@ -280,7 +290,7 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* type = callee_type->func.ret;
   tsg_type_retain(type);
 
-  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
+  tsg_tyenv_set(verifier->func_env, expr->type_id, type);
   return type;
 }
 
@@ -301,16 +311,16 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
   if (thn_type->kind == TSG_TYPE_PEND && els_type->kind != TSG_TYPE_PEND) {
     tsg_type_release(thn_type);
-    tsg_tyenv_set(verifier->tyenv, expr->type_id, els_type);
+    tsg_tyenv_set(verifier->func_env, expr->type_id, els_type);
     return els_type;
   } else if (thn_type->kind != TSG_TYPE_PEND &&
              els_type->kind == TSG_TYPE_PEND) {
     tsg_type_release(els_type);
-    tsg_tyenv_set(verifier->tyenv, expr->type_id, thn_type);
+    tsg_tyenv_set(verifier->func_env, expr->type_id, thn_type);
     return thn_type;
   } else if (tsg_type_equals(thn_type, els_type)) {
     tsg_type_release(els_type);
-    tsg_tyenv_set(verifier->tyenv, expr->type_id, thn_type);
+    tsg_tyenv_set(verifier->func_env, expr->type_id, thn_type);
     return thn_type;
   } else {
     error(verifier, &(expr->loc),
@@ -324,16 +334,21 @@ tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
 tsg_type_t* verify_expr_variable(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_decl_t* decl = expr->variable.resolved;
-  tsg_type_t* var_type = tsg_tyenv_get(verifier->tyenv, decl->type_id);
+  tsg_type_t* var_type = NULL;
+  if (decl->depth == 0) {
+    var_type = tsg_tyenv_get(verifier->root_env, decl->type_id);
+  } else {
+    var_type = tsg_tyenv_get(verifier->func_env, decl->type_id);
+  }
   tsg_type_retain(var_type);
-  tsg_tyenv_set(verifier->tyenv, expr->type_id, var_type);
+  tsg_tyenv_set(verifier->func_env, expr->type_id, var_type);
   return var_type;
 }
 
 tsg_type_t* verify_expr_number(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* type = tsg_type_create();
   type->kind = TSG_TYPE_INT;
-  tsg_tyenv_set(verifier->tyenv, expr->type_id, type);
+  tsg_tyenv_set(verifier->func_env, expr->type_id, type);
   return type;
 }
 

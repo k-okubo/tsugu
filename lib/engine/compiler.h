@@ -19,7 +19,8 @@ class Compiler {
   llvm::LLVMContext context;
   llvm::IRBuilder<> builder;
   llvm::Module* module;
-  tsg_tyenv_t* tyenv;
+  tsg_tyenv_t* root_env;
+  tsg_tyenv_t* func_env;
 
   std::vector<std::vector<llvm::Value*>> value_table;
   std::vector<llvm::Function*> function_table;

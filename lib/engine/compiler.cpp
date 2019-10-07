@@ -10,7 +10,8 @@ using namespace tsugu;
 typedef int32_t (*main_func_t)(void);
 
 int32_t Compiler::run(tsg_ast_t* ast, tsg_tyenv_t* env) {
-  this->tyenv = env;
+  this->root_env = env;
+  this->func_env = nullptr;
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
@@ -136,18 +137,21 @@ llvm::Function* Compiler::fetchFunc(tsg_func_t* func) {
 }
 
 llvm::Function* Compiler::buildFunc(tsg_func_t* func) {
-  auto prev_scope = std::move(value_table);
-  value_table.assign(1, prev_scope[0]);
-
   tsg_decl_t* decl = func->decl;
-  auto func_type = convFuncTy(tsg_tyenv_get(tyenv, decl->type_id));
-  auto llvm_func =
-      llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
-                             tsg_ident_cstr(decl->name), module);
+  auto func_type = tsg_tyenv_get(root_env, decl->type_id);
+  auto llvm_func = llvm::Function::Create(convFuncTy(func_type),
+                                          llvm::Function::ExternalLinkage,
+                                          tsg_ident_cstr(decl->name), module);
 
   function_table[func->decl->index] = llvm_func;
   auto body = llvm::BasicBlock::Create(context, "entry", llvm_func);
   builder.SetInsertPoint(body);
+
+  auto prev_scope = std::move(value_table);
+  value_table.assign(1, prev_scope[0]);
+
+  auto prev_env = this->func_env;
+  this->func_env = func_type->func.tyenv;
 
   enterScope(func->body->n_decls);
 
@@ -172,6 +176,7 @@ llvm::Function* Compiler::buildFunc(tsg_func_t* func) {
     llvm::errs() << "verifyFunction Failed\n";
   }
 
+  this->func_env = prev_env;
   value_table = std::move(prev_scope);
 
   return llvm_func;
@@ -295,7 +300,7 @@ llvm::Value* Compiler::buildExprCall(tsg_expr_t* expr) {
   }
 
   auto block = builder.GetInsertBlock();
-  tsg_type_t* callee_type = tsg_tyenv_get(tyenv, expr->call.callee->type_id);
+  tsg_type_t* callee_type = tsg_tyenv_get(func_env, expr->call.callee->type_id);
   llvm::Value* callee = fetchFunc(callee_type->func.func);
   builder.SetInsertPoint(block);
 

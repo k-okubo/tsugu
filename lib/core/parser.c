@@ -12,6 +12,7 @@ struct tsg_parser_s {
   tsg_token_t token;
   tsg_errlist_t errors;
   int32_t last_error_line;
+  int32_t func_types;
   int32_t n_types;
 };
 
@@ -122,10 +123,12 @@ int_fast8_t token_prec(tsg_token_kind_t token_kind) {
 }
 
 tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
+  parser->n_types = 0;
+  parser->func_types = 0;
+
   tsg_ast_t* ast = tsg_malloc_obj(tsg_ast_t);
   ast->functions = parse_func_list(parser);
   expect(parser, TSG_TOKEN_EOF);
-  ast->n_types = parser->n_types;
 
   return ast;
 }
@@ -171,12 +174,13 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
 
   tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
   decl->name = name;
-  decl->type_id = parser->n_types++;
+  decl->type_id = parser->func_types++;
   decl->depth = -1;
   decl->index = -1;
 
   tsg_func_t* func = tsg_malloc_obj(tsg_func_t);
   func->decl = decl;
+  parser->n_types = 0;
 
   expect(parser, TSG_TOKEN_LPAREN);
   func->args = parse_decl_list(parser);
@@ -186,6 +190,7 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
   func->body = parse_block(parser);
   expect(parser, TSG_TOKEN_RBRACE);
 
+  func->n_types = parser->n_types;
   return func;
 }
 

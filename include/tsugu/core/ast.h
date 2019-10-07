@@ -40,13 +40,13 @@ typedef struct tsg_decl_node_s tsg_decl_node_t;
 
 struct tsg_ast_s {
   tsg_func_list_t* functions;
-  int32_t n_types;
 };
 
 struct tsg_func_s {
   tsg_decl_t* decl;
   tsg_decl_list_t* args;
   tsg_block_t* body;
+  int32_t n_types;
 };
 
 struct tsg_block_s {
