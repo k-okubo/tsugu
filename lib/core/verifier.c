@@ -157,6 +157,8 @@ tsg_type_t* verify_stmt(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
     case TSG_STMT_EXPR:
       return verify_stmt_expr(verifier, stmt);
   }
+
+  return NULL;
 }
 
 tsg_type_t* verify_stmt_val(tsg_verifier_t* verifier, tsg_stmt_t* stmt) {
@@ -188,6 +190,8 @@ tsg_type_t* verify_expr(tsg_verifier_t* verifier, tsg_expr_t* expr) {
     case TSG_EXPR_NUMBER:
       return verify_expr_number(verifier, expr);
   }
+
+  return NULL;
 }
 
 tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {

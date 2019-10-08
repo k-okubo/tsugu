@@ -87,6 +87,8 @@ llvm::Type* Compiler::convTy(tsg_type_t* type) {
     case TSG_TYPE_PEND:
       return nullptr;
   }
+
+  return nullptr;
 }
 
 llvm::FunctionType* Compiler::convFuncTy(tsg_type_t* type) {
@@ -207,6 +209,8 @@ llvm::Value* Compiler::buildStmt(tsg_stmt_t* stmt) {
     case TSG_STMT_EXPR:
       return buildStmtExpr(stmt);
   }
+
+  return nullptr;
 }
 
 llvm::Value* Compiler::buildStmtVal(tsg_stmt_t* stmt) {
@@ -234,6 +238,8 @@ llvm::Value* Compiler::buildExpr(tsg_expr_t* expr) {
     case TSG_EXPR_NUMBER:
       return buildExprNumber(expr);
   }
+
+  return nullptr;
 }
 
 llvm::Value* Compiler::buildExprIfelse(tsg_expr_t* expr) {

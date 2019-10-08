@@ -69,4 +69,6 @@ const char* tsg_token_cstr(tsg_token_kind_t kind) {
     case TSG_TOKEN_ERROR:
       return "<ERROR>";
   }
+
+  return "";
 }

@@ -96,6 +96,8 @@ bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b) {
     case TSG_TYPE_PEND:
       return false;
   }
+
+  return false;
 }
 
 tsg_type_arr_t* tsg_type_arr_create(size_t size) {
