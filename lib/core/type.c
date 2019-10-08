@@ -2,10 +2,12 @@
 #include <tsugu/core/type.h>
 
 #include <tsugu/core/memory.h>
+#include <tsugu/core/tymap.h>
 #include <string.h>
 
 static void destroy_type(tsg_type_t* type);
-static void destory_type_func(tsg_type_t* type);
+static void destroy_type_func(tsg_type_t* type);
+static void destroy_type_poly(tsg_type_t* type);
 
 tsg_type_t* tsg_type_create(void) {
   tsg_type_t* type = tsg_malloc_obj(tsg_type_t);
@@ -47,7 +49,11 @@ void destroy_type(tsg_type_t* type) {
       break;
 
     case TSG_TYPE_FUNC:
-      destory_type_func(type);
+      destroy_type_func(type);
+      break;
+
+    case TSG_TYPE_POLY:
+      destroy_type_poly(type);
       break;
 
     case TSG_TYPE_PEND:
@@ -57,9 +63,13 @@ void destroy_type(tsg_type_t* type) {
   tsg_free(type);
 }
 
-void destory_type_func(tsg_type_t* type) {
+void destroy_type_func(tsg_type_t* type) {
   tsg_type_release(type->func.ret);
   tsg_type_arr_destroy(type->func.params);
+}
+
+void destroy_type_poly(tsg_type_t* type) {
+  tsg_tymap_destroy(type->poly.tymap);
 }
 
 bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b) {
@@ -79,6 +89,9 @@ bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b) {
         return false;
       }
       return true;
+
+    case TSG_TYPE_POLY:
+      return a->poly.func == b->poly.func;
 
     case TSG_TYPE_PEND:
       return false;

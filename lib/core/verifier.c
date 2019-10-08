@@ -3,6 +3,7 @@
 
 #include <tsugu/core/memory.h>
 #include <tsugu/core/tyenv.h>
+#include <tsugu/core/tymap.h>
 #include <tsugu/core/type.h>
 #include <string.h>
 
@@ -78,26 +79,29 @@ bool tsg_verifier_verify(tsg_verifier_t* verifier, tsg_ast_t* ast,
 
 void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
   tsg_func_t* main_func = NULL;
+  tsg_type_t* main_type = NULL;
 
   tsg_func_node_t* node = ast->functions->head;
   while (node) {
     tsg_type_t* type = tsg_type_create();
-    type->kind = TSG_TYPE_FUNC;
-    type->func.params = NULL;
-    type->func.ret = NULL;
-    type->func.func = node->func;
-    type->func.tyenv = NULL;
+    type->kind = TSG_TYPE_POLY;
+    type->poly.func = node->func;
+    type->poly.tymap = tsg_tymap_create();
     tsg_tyenv_set(verifier->root_env, node->func->decl->type_id, type);
 
     if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_func = node->func;
+      main_type = type;
     }
 
     node = node->next;
   }
 
-  tsg_type_arr_t* main_arg = tsg_type_arr_create(0);
-  verify_func(verifier, main_func, main_arg);
+  verifier->func_env = tsg_tyenv_create(verifier->root_env, main_func->n_types);
+  tsg_type_arr_t* main_args = tsg_type_arr_create(0);
+  tsg_tymap_add(main_type->poly.tymap, main_args, verifier->func_env);
+
+  verify_func(verifier, main_func, main_args);
 }
 
 void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
@@ -106,16 +110,12 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
     return;
   }
 
-  tsg_tyenv_t* prev_env = verifier->func_env;
-  verifier->func_env = tsg_tyenv_create(verifier->root_env, func->n_types);
-
-  tsg_type_t* func_type =
-      tsg_tyenv_get(verifier->root_env, func->decl->type_id);
+  tsg_type_t* func_type = tsg_type_create();
   func_type->kind = TSG_TYPE_FUNC;
   func_type->func.params = arg_types;
   func_type->func.ret = tsg_type_create();
   func_type->func.ret->kind = TSG_TYPE_PEND;
-  func_type->func.tyenv = verifier->func_env;
+  tsg_tyenv_set(verifier->func_env, 0, func_type);
 
   tsg_decl_node_t* decl = func->args->head;
   tsg_type_t** ptype = arg_types->elem;
@@ -131,8 +131,6 @@ void verify_func(tsg_verifier_t* verifier, tsg_func_t* func,
   tsg_type_t* ret_type = verify_block(verifier, func->body);
   tsg_type_release(func_type->func.ret);
   func_type->func.ret = ret_type;
-
-  verifier->func_env = prev_env;
 }
 
 tsg_type_t* verify_block(tsg_verifier_t* verifier, tsg_block_t* block) {
@@ -234,62 +232,44 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
     return NULL;
   }
 
-  if (callee_type->kind != TSG_TYPE_FUNC) {
+  if (callee_type->kind != TSG_TYPE_POLY) {
     error(verifier, &(expr->call.callee->loc), "callee is not a function");
     return NULL;
   }
 
-  if (callee_type->func.ret != NULL) {
+  tsg_func_t* func = callee_type->poly.func;
+  tsg_type_t* func_type = NULL;
+
+  tsg_tyenv_t* func_env = tsg_tymap_get(callee_type->poly.tymap, arg_types);
+
+  if (func_env != NULL) {
     // already typed
-    if (expr->call.args->size < callee_type->func.params->size) {
-      error(verifier, &(expr->loc), "too few arguments");
-      return NULL;
-    }
-    if (expr->call.args->size > callee_type->func.params->size) {
-      error(verifier, &(expr->loc), "too many arguments");
-      return NULL;
-    }
-
-    tsg_type_t** param_type = callee_type->func.params->elem;
-    tsg_type_t** arg_type = arg_types->elem;
-
-    while (arg_type < arg_types->elem + arg_types->size) {
-      if ((*param_type)->kind == TSG_TYPE_FUNC) {
-        if ((*arg_type)->kind == TSG_TYPE_FUNC &&
-            (*arg_type)->func.ret == NULL) {
-          verify_func(verifier, (*arg_type)->func.func,
-                      tsg_type_arr_dup((*param_type)->func.params));
-        }
-      }
-
-      if (tsg_type_equals(*param_type, *arg_type) == false) {
-        error(verifier, &(expr->loc), "arg type miss match");
-      }
-
-      param_type++;
-      arg_type++;
-    }
-
-    tsg_type_release(callee_type);
-    tsg_type_arr_destroy(arg_types);
+    func_type = tsg_tyenv_get(func_env, 0);
   } else {
-    tsg_func_t* func = callee_type->func.func;
-
-    if (expr->call.args->size < func->args->size) {
+    if (expr->call.args->size < callee_type->poly.func->args->size) {
       error(verifier, &(expr->loc), "too few arguments");
       return NULL;
     }
-    if (expr->call.args->size > func->args->size) {
+    if (expr->call.args->size > callee_type->poly.func->args->size) {
       error(verifier, &(expr->loc), "too many arguments");
       return NULL;
     }
+
+    // create specific typed function instance
+    func_env = tsg_tyenv_create(verifier->root_env, func->n_types);
+    tsg_tymap_add(callee_type->poly.tymap, arg_types, func_env);
+
+    tsg_tyenv_t* prev_env = verifier->func_env;
+    verifier->func_env = func_env;
 
     verify_func(verifier, func, arg_types);
+    func_type = tsg_tyenv_get(func_env, 0);
+
+    verifier->func_env = prev_env;
   }
 
-  tsg_type_t* type = callee_type->func.ret;
+  tsg_type_t* type = func_type->func.ret;
   tsg_type_retain(type);
-
   tsg_tyenv_set(verifier->func_env, expr->type_id, type);
   return type;
 }

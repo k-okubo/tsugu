@@ -2,6 +2,7 @@
 #ifndef TSUGU_ENGINE_COMPILER_H
 #define TSUGU_ENGINE_COMPILER_H
 
+#include "function_table.h"
 #include <tsugu/core/ast.h>
 #include <tsugu/core/tyenv.h>
 #include <llvm/IR/IRBuilder.h>
@@ -23,7 +24,7 @@ class Compiler {
   tsg_tyenv_t* func_env;
 
   std::vector<std::vector<llvm::Value*>> value_table;
-  std::vector<llvm::Function*> function_table;
+  FunctionTable* function_table;
 
   void enterScope(size_t size);
   void leaveScope(void);
@@ -35,8 +36,8 @@ class Compiler {
   std::vector<llvm::Type*> convTyArr(tsg_type_arr_t* arr);
 
   void buildAst(tsg_ast_t* ast);
-  llvm::Function* fetchFunc(tsg_func_t* func);
-  llvm::Function* buildFunc(tsg_func_t* func);
+  llvm::Function* fetchFunc(tsg_func_t* func, tsg_tyenv_t* env);
+  llvm::Function* buildFunc(tsg_func_t* func, tsg_tyenv_t* env);
   llvm::Value* buildBlock(tsg_block_t* block);
 
   llvm::Value* buildStmt(tsg_stmt_t* stmt);

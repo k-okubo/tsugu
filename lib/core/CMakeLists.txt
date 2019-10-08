@@ -8,6 +8,7 @@ add_library(core
   symtbl.c
   token.c
   tyenv.c
+  tymap.c
   type.c
   verifier.c
 )

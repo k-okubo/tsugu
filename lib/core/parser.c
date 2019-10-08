@@ -123,7 +123,7 @@ int_fast8_t token_prec(tsg_token_kind_t token_kind) {
 }
 
 tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
-  parser->n_types = 0;
+  parser->n_types = 1;
   parser->func_types = 0;
 
   tsg_ast_t* ast = tsg_malloc_obj(tsg_ast_t);
@@ -180,7 +180,7 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
 
   tsg_func_t* func = tsg_malloc_obj(tsg_func_t);
   func->decl = decl;
-  parser->n_types = 0;
+  parser->n_types = 1;
 
   expect(parser, TSG_TOKEN_LPAREN);
   func->args = parse_decl_list(parser);

@@ -1,6 +1,7 @@
 
 #include "compiler.h"
 
+#include <tsugu/core/tymap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
@@ -78,7 +79,9 @@ llvm::Type* Compiler::convTy(tsg_type_t* type) {
       return builder.getInt32Ty();
 
     case TSG_TYPE_FUNC:
-      // return convFuncTy(type)->getPointerTo();
+      return convFuncTy(type)->getPointerTo();
+
+    case TSG_TYPE_POLY:
       return builder.getInt32Ty();
 
     case TSG_TYPE_PEND:
@@ -110,40 +113,43 @@ std::vector<llvm::Type*> Compiler::convTyArr(tsg_type_arr_t* arr) {
 
 void Compiler::buildAst(tsg_ast_t* ast) {
   enterScope(ast->functions->size);
-  function_table = std::vector<llvm::Function*>(ast->functions->size, nullptr);
-  tsg_func_t* main_func = nullptr;
+  function_table = new FunctionTable();
+  tsg_type_t* main_type = nullptr;
 
   auto node = ast->functions->head;
   while (node) {
     insert(node->func->decl, builder.getInt32(0));
     if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
-      main_func = node->func;
+      main_type = tsg_tyenv_get(root_env, node->func->decl->type_id);
     }
     node = node->next;
   }
 
-  fetchFunc(main_func);
+  tsg_type_arr_t* main_args = tsg_type_arr_create(0);
+  tsg_tyenv_t* main_env = tsg_tymap_get(main_type->poly.tymap, main_args);
+
+  fetchFunc(main_type->poly.func, main_env);
   leaveScope();
 }
 
-llvm::Function* Compiler::fetchFunc(tsg_func_t* func) {
-  llvm::Function* llvm_func = function_table[func->decl->index];
+llvm::Function* Compiler::fetchFunc(tsg_func_t* func, tsg_tyenv_t* env) {
+  llvm::Function* llvm_func = function_table->get(func, env);
   if (llvm_func) {
     return llvm_func;
   }
 
-  llvm_func = buildFunc(func);
+  llvm_func = buildFunc(func, env);
   return llvm_func;
 }
 
-llvm::Function* Compiler::buildFunc(tsg_func_t* func) {
+llvm::Function* Compiler::buildFunc(tsg_func_t* func, tsg_tyenv_t* env) {
   tsg_decl_t* decl = func->decl;
-  auto func_type = tsg_tyenv_get(root_env, decl->type_id);
+  auto func_type = tsg_tyenv_get(env, 0);
   auto llvm_func = llvm::Function::Create(convFuncTy(func_type),
                                           llvm::Function::ExternalLinkage,
                                           tsg_ident_cstr(decl->name), module);
 
-  function_table[func->decl->index] = llvm_func;
+  function_table->set(func, env, llvm_func);
   auto body = llvm::BasicBlock::Create(context, "entry", llvm_func);
   builder.SetInsertPoint(body);
 
@@ -151,7 +157,7 @@ llvm::Function* Compiler::buildFunc(tsg_func_t* func) {
   value_table.assign(1, prev_scope[0]);
 
   auto prev_env = this->func_env;
-  this->func_env = func_type->func.tyenv;
+  this->func_env = env;
 
   enterScope(func->body->n_decls);
 
@@ -292,16 +298,21 @@ llvm::Value* Compiler::buildExprCall(tsg_expr_t* expr) {
   buildExpr(expr->call.callee);
 
   std::vector<llvm::Value*> args;
+  tsg_type_arr_t* arg_types = tsg_type_arr_create(expr->call.args->size);
+  tsg_type_t** p = arg_types->elem;
+
   auto node = expr->call.args->head;
   while (node) {
     auto value = buildExpr(node->expr);
     args.push_back(value);
+    *(p++) = tsg_tyenv_get(func_env, node->expr->type_id);
     node = node->next;
   }
 
   auto block = builder.GetInsertBlock();
   tsg_type_t* callee_type = tsg_tyenv_get(func_env, expr->call.callee->type_id);
-  llvm::Value* callee = fetchFunc(callee_type->func.func);
+  tsg_tyenv_t* callee_env = tsg_tymap_get(callee_type->poly.tymap, arg_types);
+  llvm::Value* callee = fetchFunc(callee_type->poly.func, callee_env);
   builder.SetInsertPoint(block);
 
   return builder.CreateCall(callee, args);
