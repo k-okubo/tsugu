@@ -6,3 +6,7 @@ target_link_libraries(tsugu
   engine
   ${LLVM_LIBS}
 )
+
+install(TARGETS tsugu
+  RUNTIME DESTINATION bin
+)
