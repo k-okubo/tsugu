@@ -41,7 +41,7 @@ int32_t Compiler::run(tsg_ast_t* ast, tsg_tyenv_t* env) {
   auto f = (main_func_t)engine->getFunctionAddress("main");
   if (!f) {
     llvm::errs() << "function not found\n";
-    return 1;
+    return -1;
   }
   int32_t result = f();
 
