@@ -75,6 +75,9 @@ llvm::Value* Compiler::lookup(tsg_decl_t* decl) {
 
 llvm::Type* Compiler::convTy(tsg_type_t* type) {
   switch (type->kind) {
+    case TSG_TYPE_BOOL:
+      return builder.getInt1Ty();
+
     case TSG_TYPE_INT:
       return builder.getInt32Ty();
 

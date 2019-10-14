@@ -45,6 +45,9 @@ void destroy_type(tsg_type_t* type) {
   }
 
   switch (type->kind) {
+    case TSG_TYPE_BOOL:
+      break;
+
     case TSG_TYPE_INT:
       break;
 
@@ -78,6 +81,9 @@ bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b) {
   }
 
   switch (a->kind) {
+    case TSG_TYPE_BOOL:
+      return true;
+
     case TSG_TYPE_INT:
       return true;
 

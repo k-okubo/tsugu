@@ -204,21 +204,29 @@ tsg_type_t* verify_expr_binary(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
   tsg_type_t* type = tsg_type_create();
 
-  if (lhs_type->kind == TSG_TYPE_INT && rhs_type->kind == TSG_TYPE_INT) {
-    type->kind = TSG_TYPE_INT;
-  } else if (lhs_type->kind == TSG_TYPE_INT &&
-             rhs_type->kind == TSG_TYPE_PEND) {
-    type->kind = TSG_TYPE_INT;
-  } else if (lhs_type->kind == TSG_TYPE_PEND &&
-             rhs_type->kind == TSG_TYPE_INT) {
-    type->kind = TSG_TYPE_INT;
-  } else if (lhs_type->kind == TSG_TYPE_PEND &&
-             rhs_type->kind == TSG_TYPE_PEND) {
-    type->kind = TSG_TYPE_PEND;
+  if (lhs_type->kind == rhs_type->kind) {
+    type->kind = lhs_type->kind;
+  } else if (lhs_type->kind == TSG_TYPE_PEND) {
+    type->kind = rhs_type->kind;
+  } else if (rhs_type->kind == TSG_TYPE_PEND) {
+    type->kind = lhs_type->kind;
   } else {
     error(verifier, &(expr->loc), "incompatible type");
     tsg_type_release(type);
     type = NULL;
+  }
+
+  if (type) {
+    switch (expr->binary.op) {
+      case TSG_TOKEN_EQ:
+      case TSG_TOKEN_LT:
+      case TSG_TOKEN_GT:
+        type->kind = TSG_TYPE_BOOL;
+        break;
+
+      default:
+        break;
+    }
   }
 
   tsg_type_release(lhs_type);
@@ -280,9 +288,9 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
 tsg_type_t* verify_expr_ifelse(tsg_verifier_t* verifier, tsg_expr_t* expr) {
   tsg_type_t* cond_type = verify_expr(verifier, expr->ifelse.cond);
-  if (cond_type && cond_type->kind != TSG_TYPE_INT) {
+  if (cond_type && cond_type->kind != TSG_TYPE_BOOL) {
     error(verifier, &(expr->ifelse.cond->loc),
-          "cond expr must have integer type");
+          "cond expr must have boolean type");
   }
   tsg_type_release(cond_type);
 

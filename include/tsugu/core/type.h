@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 typedef enum {
+  TSG_TYPE_BOOL,
   TSG_TYPE_INT,
   TSG_TYPE_FUNC,
   TSG_TYPE_POLY,
