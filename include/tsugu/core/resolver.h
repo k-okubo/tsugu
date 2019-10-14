@@ -1,3 +1,8 @@
+/*--------------------------------------- vi: set ft=c ts=2 sw=2 et: --*-c-*--*/
+/**
+ * @file resolver.h
+ *
+ ** --------------------------------------------------------------------------*/
 
 #ifndef TSUGU_CORE_RESOLVER_H
 #define TSUGU_CORE_RESOLVER_H

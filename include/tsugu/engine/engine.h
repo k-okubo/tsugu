@@ -1,3 +1,8 @@
+/*--------------------------------------- vi: set ft=c ts=2 sw=2 et: --*-c-*--*/
+/**
+ * @file engine.h
+ *
+ ** --------------------------------------------------------------------------*/
 
 #ifndef TSUGU_ENGINE_ENGINE_H
 #define TSUGU_ENGINE_ENGINE_H

@@ -1,3 +1,8 @@
+/*----------------------------------- vi: set ft=cpp ts=2 sw=2 et: --*-cpp-*--*/
+/**
+ * @file compiler.h
+ *
+ ** --------------------------------------------------------------------------*/
 
 #ifndef TSUGU_ENGINE_COMPILER_H
 #define TSUGU_ENGINE_COMPILER_H

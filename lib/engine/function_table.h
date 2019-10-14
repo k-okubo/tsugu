@@ -1,3 +1,8 @@
+/*----------------------------------- vi: set ft=cpp ts=2 sw=2 et: --*-cpp-*--*/
+/**
+ * @file function_table.h
+ *
+ ** --------------------------------------------------------------------------*/
 
 #ifndef TSUGU_ENGINE_FUNCTION_TABLE_H
 #define TSUGU_ENGINE_FUNCTION_TABLE_H
