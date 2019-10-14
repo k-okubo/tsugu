@@ -1,4 +1,6 @@
 /build/
+/docs/*
+!/docs/.gitkeep
 /external/*
 !/external/Makefile
 
