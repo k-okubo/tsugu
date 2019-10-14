@@ -172,7 +172,7 @@ void scan_number(tsg_scanner_t* scanner) {
 
 void scan_identifier(tsg_scanner_t* scanner) {
   uint8_t ch = scanner->ch;
-  while (isalnum(ch)) {
+  while (isalnum(ch) || ch == '_') {
     ch = next(scanner);
   }
 }

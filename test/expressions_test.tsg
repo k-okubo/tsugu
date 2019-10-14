@@ -1,7 +1,7 @@
 // RUN: cat %s | %tsugu | FileCheck %s
 // CHECK: result = 1
 
-def asserteq(expected, actual) {
+def assert_eq(expected, actual) {
   if (expected == actual) {
     1;
   } else {
@@ -11,11 +11,11 @@ def asserteq(expected, actual) {
 
 def main() {
   1
-  * asserteq(3, 1 + 2)
-  * asserteq(2, 5 - 3)
-  * asserteq(6, 2 * 3)
-  * asserteq(2, 5 / 2)
-  * asserteq(9, (1 + 2) * 3)
-  * asserteq(7, 1 + 2 * 3)
+  * assert_eq(3, 1 + 2)
+  * assert_eq(2, 5 - 3)
+  * assert_eq(6, 2 * 3)
+  * assert_eq(2, 5 / 2)
+  * assert_eq(9, (1 + 2) * 3)
+  * assert_eq(7, 1 + 2 * 3)
   ;
 }
