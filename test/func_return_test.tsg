@@ -1,0 +1,14 @@
+// RUN: cat %s | %tsugu | FileCheck %s
+// CHECK: result = 10
+
+def double(x) {
+  2 * x;
+}
+
+def get_func() {
+  double;
+}
+
+def main() {
+  get_func()(5);
+}

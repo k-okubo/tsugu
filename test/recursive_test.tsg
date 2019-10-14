@@ -1,0 +1,14 @@
+// RUN: cat %s | %tsugu | FileCheck %s
+// CHECK: result = 55
+
+def sum(n) {
+  if (n < 1) {
+    n;
+  } else {
+    n + sum(n - 1);
+  };
+}
+
+def main() {
+  sum(10);
+}

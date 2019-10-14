@@ -1,3 +1,6 @@
+// RUN: cat %s | %tsugu | FileCheck %s
+// CHECK: result = 66
+
 def apply(f, x) {
   f(x);
 }
