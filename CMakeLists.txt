@@ -22,7 +22,6 @@ execute_process (COMMAND ${LLVM_CONFIG} --system-libs OUTPUT_VARIABLE LLVM_SYSTE
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-add_subdirectory(lib)
 add_subdirectory(src)
 
 add_custom_target(check
