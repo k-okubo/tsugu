@@ -18,6 +18,7 @@ static uint8_t read(tsg_scanner_t* scanner);
 static void skip_whitespace(tsg_scanner_t* scanner);
 static void scan_number(tsg_scanner_t* scanner);
 static void scan_identifier(tsg_scanner_t* scanner);
+static void scan_line(tsg_scanner_t* scanner);
 
 tsg_scanner_t* tsg_scanner_create(const void* buffer, size_t nbytes) {
   tsg_scanner_t* scanner = tsg_malloc_obj(tsg_scanner_t);
@@ -85,7 +86,14 @@ void tsg_scanner_scan(tsg_scanner_t* scanner, tsg_token_t* token) {
     token->kind = TSG_TOKEN_MUL;
   } else if (ch == '/') {
     next(scanner);
-    token->kind = TSG_TOKEN_DIV;
+    ch = scanner->ch;
+    if (ch == '/') {
+      scan_line(scanner);
+      tsg_scanner_scan(scanner, token);
+      return;
+    } else {
+      token->kind = TSG_TOKEN_DIV;
+    }
   } else if (ch == '=') {
     next(scanner);
     ch = scanner->ch;
@@ -167,4 +175,12 @@ void scan_identifier(tsg_scanner_t* scanner) {
   while (isalnum(ch)) {
     ch = next(scanner);
   }
+}
+
+void scan_line(tsg_scanner_t* scanner) {
+  uint8_t ch = scanner->ch;
+  while (ch != 0x00 && ch != '\n') {
+    ch = next(scanner);
+  }
+  next(scanner);
 }
