@@ -2,13 +2,13 @@
 // CHECK: result = 6
 
 def id(x) {
-  x;
+  x
 }
 
 def double(x) {
-  2 * x;
+  2 * x
 }
 
 def main() {
-  id(double)(id(3));
+  id(double)(id(3))
 }

@@ -3,18 +3,18 @@
 
 def assert_eq(expected, actual) {
   if (expected == actual) {
-    1;
+    1
   } else {
-    0;
-  };
+    0
+  }
 }
 
 def assert(cond) {
   if (cond) {
-    1;
+    1
   } else {
-    0;
-  };
+    0
+  }
 }
 
 def main() {
@@ -28,5 +28,4 @@ def main() {
   * assert(1 == 1)
   * assert(1 < 2)
   * assert(3 > 2)
-  ;
 }

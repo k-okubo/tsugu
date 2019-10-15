@@ -2,13 +2,13 @@
 // CHECK: result = 10
 
 def double(x) {
-  2 * x;
+  2 * x
 }
 
 def get_func() {
-  double;
+  double
 }
 
 def main() {
-  get_func()(5);
+  get_func()(5)
 }

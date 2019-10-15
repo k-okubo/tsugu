@@ -15,6 +15,7 @@ struct tsg_parser_s {
   tsg_scanner_t* scanner;
   tsg_token_t token;
   tsg_errlist_t errors;
+  int32_t last_line;
   int32_t last_error_line;
   int32_t func_types;
   int32_t n_types;
@@ -75,6 +76,7 @@ void tsg_parser_error(const tsg_parser_t* parser, tsg_errlist_t* errors) {
 }
 
 void next(tsg_parser_t* parser) {
+  parser->last_line = parser->token.loc.end.line;
   tsg_scanner_scan(parser->scanner, &(parser->token));
 }
 
@@ -235,13 +237,30 @@ tsg_stmt_list_t* parse_stmt_list(tsg_parser_t* parser) {
 }
 
 tsg_stmt_t* parse_stmt(tsg_parser_t* parser) {
+  tsg_stmt_t* stmt = NULL;
+
   switch (parser->token.kind) {
     case TSG_TOKEN_VAL:
-      return parse_stmt_val(parser);
+      stmt = parse_stmt_val(parser);
+      break;
 
     default:
-      return parse_stmt_expr(parser);
+      stmt = parse_stmt_expr(parser);
+      break;
   }
+
+  if (accept(parser, TSG_TOKEN_SEMICOLON) == false) {
+    if (parser->token.kind != TSG_TOKEN_EOF &&
+        parser->token.kind != TSG_TOKEN_RBRACE) {
+      if (parser->token.loc.begin.line == parser->last_line) {
+        error(parser, "expected '%s', found '%s'",
+              tsg_token_cstr(TSG_TOKEN_SEMICOLON),
+              tsg_token_cstr(parser->token.kind));
+      }
+    }
+  }
+
+  return stmt;
 }
 
 tsg_stmt_t* parse_stmt_val(tsg_parser_t* parser) {
@@ -264,7 +283,6 @@ tsg_stmt_t* parse_stmt_val(tsg_parser_t* parser) {
     error(parser, "expected expression");
   }
 
-  expect(parser, TSG_TOKEN_SEMICOLON);
   return stmt;
 }
 
@@ -278,7 +296,6 @@ tsg_stmt_t* parse_stmt_expr(tsg_parser_t* parser) {
   stmt->kind = TSG_STMT_EXPR;
   stmt->expr.expr = expr;
 
-  expect(parser, TSG_TOKEN_SEMICOLON);
   return stmt;
 }
 
