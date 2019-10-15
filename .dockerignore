@@ -1,7 +1,6 @@
 *
 !external/Makefile
 !include
-!lib
 !src
 !test
 !CMakeLists.txt
