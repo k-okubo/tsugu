@@ -1,4 +1,4 @@
-add_library(core
+add_library(tsugu_core
   ast.c
   error.c
   memory.c
