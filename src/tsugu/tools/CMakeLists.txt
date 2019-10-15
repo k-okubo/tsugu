@@ -4,6 +4,7 @@ add_executable(tsugu
 target_link_libraries(tsugu
   tsugu_core
   tsugu_engine
+  tsugu_platform_linux
   ${LLVM_LIBS}
 )
 install(TARGETS tsugu

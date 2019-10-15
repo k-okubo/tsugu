@@ -8,7 +8,6 @@
 
 #include <tsugu/core/memory.h>
 #include <tsugu/core/tymap.h>
-#include <string.h>
 
 static void destroy_type(tsg_type_t* type);
 static void destroy_type_func(tsg_type_t* type);
@@ -119,7 +118,7 @@ tsg_type_arr_t* tsg_type_arr_create(size_t size) {
 
   if (size > 0) {
     arr->elem = tsg_malloc_arr(tsg_type_t*, size);
-    memset(arr->elem, 0, sizeof(tsg_type_t*) * size);
+    tsg_memset(arr->elem, 0, sizeof(tsg_type_t*) * size);
     arr->size = size;
   } else {
     arr->elem = NULL;

@@ -10,7 +10,6 @@
 #include <tsugu/core/tyenv.h>
 #include <tsugu/core/tymap.h>
 #include <tsugu/core/type.h>
-#include <string.h>
 
 struct tsg_verifier_s {
   tsg_tyenv_t* root_env;
@@ -94,7 +93,7 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
     type->poly.tymap = tsg_tymap_create();
     tsg_tyenv_set(verifier->root_env, node->func->decl->type_id, type);
 
-    if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
+    if (tsg_memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_func = node->func;
       main_type = type;
     }

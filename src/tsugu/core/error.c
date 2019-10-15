@@ -4,11 +4,11 @@
  *
  ** --------------------------------------------------------------------------*/
 
-#include <tsugu/core/ast.h>
 #include <tsugu/core/error.h>
+
+#include <tsugu/core/ast.h>
 #include <tsugu/core/memory.h>
 #include <stdarg.h>
-#include <string.h>
 
 #define ERROR_MESSAGE_MAXLEN (2048)
 
@@ -76,13 +76,13 @@ char* create_error_message(const char* format, va_list args) {
       if (*src == 'I') {
         tsg_ident_t* ident = va_arg(args, tsg_ident_t*);
         size_t nbytes = size_min(ident->nbytes, buffer_end - out);
-        memcpy(out, ident->buffer, nbytes);
+        tsg_memcpy(out, ident->buffer, nbytes);
         out += nbytes;
         src++;
       } else if (*src == 's') {
         const char* string = va_arg(args, const char*);
-        size_t nbytes = size_min(strlen(string), buffer_end - out);
-        memcpy(out, string, nbytes);
+        size_t nbytes = size_min(tsg_strlen(string), buffer_end - out);
+        tsg_memcpy(out, string, nbytes);
         out += nbytes;
         src++;
       } else {
@@ -97,7 +97,7 @@ char* create_error_message(const char* format, va_list args) {
 
   size_t message_size = out - buffer;
   char* message = tsg_malloc_arr(char, message_size);
-  memcpy(message, buffer, message_size);
+  tsg_memcpy(message, buffer, message_size);
 
   return message;
 }

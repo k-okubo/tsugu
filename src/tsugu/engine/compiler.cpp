@@ -6,6 +6,7 @@
 
 #include "compiler.h"
 
+#include <tsugu/core/platform.h>
 #include <tsugu/core/tymap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/IR/Verifier.h>
@@ -129,7 +130,7 @@ void Compiler::buildAst(tsg_ast_t* ast) {
   auto node = ast->functions->head;
   while (node) {
     insert(node->func->decl, builder.getInt32(0));
-    if (memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
+    if (tsg_memcmp(node->func->decl->name->buffer, "main", 4) == 0) {
       main_type = tsg_tyenv_get(root_env, node->func->decl->type_id);
     }
     node = node->next;

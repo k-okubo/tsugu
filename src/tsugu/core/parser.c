@@ -10,7 +10,6 @@
 #include <tsugu/core/memory.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <string.h>
 
 struct tsg_parser_s {
   tsg_scanner_t* scanner;
@@ -571,7 +570,7 @@ tsg_ident_t* parse_ident(tsg_parser_t* parser) {
 
   tsg_ident_t* ident = tsg_malloc_obj(tsg_ident_t);
   ident->buffer = tsg_malloc_arr(uint8_t, nbytes + 1);
-  memcpy(ident->buffer, src, nbytes);
+  tsg_memcpy(ident->buffer, src, nbytes);
   ident->buffer[nbytes] = 0;
   ident->nbytes = nbytes;
   ident->loc = parser->token.loc;

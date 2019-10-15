@@ -6,9 +6,8 @@
 
 #include <tsugu/core/resolver.h>
 
-#include "symtbl.h"
 #include <tsugu/core/memory.h>
-#include <string.h>
+#include <tsugu/core/symtbl.h>
 
 typedef struct scope_s scope_t;
 struct scope_s {

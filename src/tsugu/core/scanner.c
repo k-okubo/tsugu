@@ -4,12 +4,11 @@
  *
  ** --------------------------------------------------------------------------*/
 
-#include <tsugu/core/memory.h>
 #include <tsugu/core/scanner.h>
-#include <ctype.h>
+
+#include <tsugu/core/memory.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 
 struct tsg_scanner_s {
   const uint8_t* ptr;
@@ -132,10 +131,10 @@ void tsg_scanner_scan(tsg_scanner_t* scanner, tsg_token_t* token) {
   } else if (ch == ';') {
     next(scanner);
     token->kind = TSG_TOKEN_SEMICOLON;
-  } else if (isdigit(ch)) {
+  } else if ('0' <= ch && ch <= '9') {
     scan_number(scanner);
     token->kind = TSG_TOKEN_NUMBER;
-  } else if (isalpha(ch)) {
+  } else if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')) {
     scan_identifier(scanner);
     token->kind = TSG_TOKEN_IDENT;
   } else {
@@ -149,13 +148,13 @@ void tsg_scanner_scan(tsg_scanner_t* scanner, tsg_token_t* token) {
     const uint8_t* buffer = token->value.buffer;
     size_t nbytes = token->value.nbytes;
 
-    if (nbytes == 3 && memcmp(buffer, "def", 3) == 0) {
+    if (nbytes == 3 && tsg_memcmp(buffer, "def", 3) == 0) {
       token->kind = TSG_TOKEN_DEF;
-    } else if (nbytes == 3 && memcmp(buffer, "val", 3) == 0) {
+    } else if (nbytes == 3 && tsg_memcmp(buffer, "val", 3) == 0) {
       token->kind = TSG_TOKEN_VAL;
-    } else if (nbytes == 2 && memcmp(buffer, "if", 2) == 0) {
+    } else if (nbytes == 2 && tsg_memcmp(buffer, "if", 2) == 0) {
       token->kind = TSG_TOKEN_IF;
-    } else if (nbytes == 4 && memcmp(buffer, "else", 4) == 0) {
+    } else if (nbytes == 4 && tsg_memcmp(buffer, "else", 4) == 0) {
       token->kind = TSG_TOKEN_ELSE;
     }
   }
@@ -163,21 +162,22 @@ void tsg_scanner_scan(tsg_scanner_t* scanner, tsg_token_t* token) {
 
 void skip_whitespace(tsg_scanner_t* scanner) {
   uint8_t ch = scanner->ch;
-  while (isspace(ch)) {
+  while (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
     ch = next(scanner);
   }
 }
 
 void scan_number(tsg_scanner_t* scanner) {
   uint8_t ch = scanner->ch;
-  while (isdigit(ch)) {
+  while ('0' <= ch && ch <= '9') {
     ch = next(scanner);
   }
 }
 
 void scan_identifier(tsg_scanner_t* scanner) {
   uint8_t ch = scanner->ch;
-  while (isalnum(ch) || ch == '_') {
+  while (('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'z') ||
+         ('A' <= ch && ch <= 'Z') || ch == '_') {
     ch = next(scanner);
   }
 }

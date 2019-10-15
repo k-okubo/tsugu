@@ -4,11 +4,10 @@
  *
  ** --------------------------------------------------------------------------*/
 
-#include "symtbl.h"
+#include <tsugu/core/symtbl.h>
 
 #include <tsugu/core/memory.h>
 #include <inttypes.h>
-#include <string.h>
 
 #define NAMETABLE_INITIAL_HASH_BITS (6)
 #define NAMETABLE_LINEAR_SEARCH_LIMIT (10)
@@ -59,7 +58,7 @@ void tsg_symtbl_destroy(tsg_symtbl_t* symtbl) {
 
 void tsg_symtbl_clear(tsg_symtbl_t* symtbl) {
   size_t nslots = table_nslots(symtbl->hash_bits);
-  memset(symtbl->table, 0, sizeof(record_t) * nslots);
+  tsg_memset(symtbl->table, 0, sizeof(record_t) * nslots);
 }
 
 bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_decl_t* decl) {
@@ -182,6 +181,6 @@ bool same_ident(tsg_ident_t* ident1, tsg_ident_t* ident2) {
   if (ident1->nbytes != ident2->nbytes) {
     return false;
   } else {
-    return memcmp(ident1->buffer, ident2->buffer, ident1->nbytes) == 0;
+    return tsg_memcmp(ident1->buffer, ident2->buffer, ident1->nbytes) == 0;
   }
 }

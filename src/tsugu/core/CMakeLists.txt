@@ -1,7 +1,8 @@
+include_directories("${PROJECT_SOURCE_DIR}/src")
+
 add_library(tsugu_core
   ast.c
   error.c
-  memory.c
   parser.c
   resolver.c
   scanner.c

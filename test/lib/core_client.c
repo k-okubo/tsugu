@@ -9,6 +9,12 @@
 #include <tsugu/core/scanner.h>
 #include <tsugu/core/verifier.h>
 
+void mcount(unsigned long from, unsigned long self) {
+  (void)from;
+  (void)self;
+  return;
+}
+
 void _start(void) {
   tsg_scanner_t* scanner = tsg_scanner_create("", 0);
   tsg_parser_t* parser = tsg_parser_create(scanner);
