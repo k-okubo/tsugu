@@ -1,0 +1,11 @@
+// RUN: cat %s | not %tsugu 2>&1 > /dev/null | FileCheck %s
+
+def f() { 1 }
+
+def main() {
+  // CHECK: 7:7: cond expr must have boolean type
+  if (0) { 1 } else { 0 }
+
+  // CHECK: 10:3: type miss match
+  if (1 == 1) { f } else { 0 }
+}
