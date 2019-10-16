@@ -101,6 +101,11 @@ void verify_ast(tsg_verifier_t* verifier, tsg_ast_t* ast) {
     node = node->next;
   }
 
+  if (main_func == NULL) {
+    error(verifier, NULL, "main function not found");
+    return;
+  }
+
   verifier->func_env = tsg_tyenv_create(verifier->root_env, main_func->n_types);
   tsg_type_arr_t* main_args = tsg_type_arr_create(0);
   tsg_tymap_add(main_type->poly.tymap, main_args, verifier->func_env);

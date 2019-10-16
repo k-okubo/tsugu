@@ -1,0 +1,23 @@
+// RUN: cat %s | not %tsugu 2>&1 > /dev/null | FileCheck %s
+
+// CHECK: 4:5: expected identifier
+def (x) { x }
+
+// CHECK: 7:5: expected identifier
+def 1(x) { x }
+
+// CHECK: 10:7: expected '('
+def f { 1 }
+
+// CHECK: 13:9: expected declare
+def f(a,) { 1 }
+
+// CHECK: 16:8: expected ')'
+def f(a+b) { 1 }
+
+// CHECK: 19:9: expected '{'
+def f() 1 { }
+
+// CHECK: 23:1: expected '}'
+def f(a) { a
+def f(a) { a }

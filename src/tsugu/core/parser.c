@@ -148,7 +148,12 @@ tsg_func_list_t* parse_func_list(tsg_parser_t* parser) {
   while (true) {
     tsg_func_t* func = parse_func(parser);
     if (func == NULL) {
-      break;
+      if (parser->token.kind == TSG_TOKEN_EOF) {
+        break;
+      } else {
+        next(parser);
+        continue;
+      }
     }
 
     tsg_func_node_t* node = tsg_malloc_obj(tsg_func_node_t);
@@ -321,18 +326,18 @@ tsg_expr_t* parse_expr_binary(tsg_parser_t* parser, int lowest_prec) {
     tsg_expr_t* rhs = parse_expr_binary(parser, prec);
     if (rhs == NULL) {
       error(parser, "expected expression");
+    } else {
+      tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
+      expr->kind = TSG_EXPR_BINARY;
+      expr->type_id = parser->n_types++;
+      expr->loc.begin = lhs->loc.begin;
+      expr->loc.end = rhs->loc.end;
+      expr->binary.op = op;
+      expr->binary.lhs = lhs;
+      expr->binary.rhs = rhs;
+
+      lhs = expr;
     }
-
-    tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-    expr->kind = TSG_EXPR_BINARY;
-    expr->type_id = parser->n_types++;
-    expr->loc.begin = lhs->loc.begin;
-    expr->loc.end = rhs->loc.end;
-    expr->binary.op = op;
-    expr->binary.lhs = lhs;
-    expr->binary.rhs = rhs;
-
-    lhs = expr;
   }
 }
 

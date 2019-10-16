@@ -42,7 +42,14 @@ void tsg_error(tsg_errlist_t* errlist, const tsg_source_range_t* loc,
 void tsg_errorv(tsg_errlist_t* errlist, const tsg_source_range_t* loc,
                 const char* format, va_list args) {
   tsg_error_t* error = tsg_malloc_obj(tsg_error_t);
-  error->loc = *loc;
+  if (loc != NULL) {
+    error->loc = *loc;
+  } else {
+    error->loc.begin.line = 0;
+    error->loc.begin.column = 0;
+    error->loc.end.line = 0;
+    error->loc.end.column = 0;
+  }
   error->message = create_error_message(format, args);
   error->next = NULL;
 

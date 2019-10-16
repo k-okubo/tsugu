@@ -35,7 +35,7 @@ tsg_scanner_t* tsg_scanner_create(const void* buffer, size_t nbytes) {
   scanner->ch = 0x00;
 
   scanner->pos.line = 1;
-  scanner->pos.column = 0;
+  scanner->pos.column = 1;
 
   read(scanner);
   return scanner;
@@ -48,7 +48,7 @@ void tsg_scanner_destroy(tsg_scanner_t* scanner) {
 uint8_t next(tsg_scanner_t* scanner) {
   if (scanner->ch == '\n') {
     scanner->pos.line += 1;
-    scanner->pos.column = 0;
+    scanner->pos.column = 1;
   } else {
     scanner->pos.column += 1;
   }

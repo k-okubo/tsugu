@@ -1,0 +1,8 @@
+// RUN: cat %s | not %tsugu 2>&1 > /dev/null | FileCheck %s
+
+def a(f) { f(0) }
+
+def main() {
+  // CHECK: callee is not a function
+  a(0)
+}

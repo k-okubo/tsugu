@@ -1,0 +1,33 @@
+// RUN: cat %s | %tsugu | FileCheck %s
+// CHECK: result = 1
+
+def assert(cond) {
+  if (cond) { 1 } else { 0 }
+}
+
+// polymorphic identity function
+def id(x) { x }
+
+// recursive sum
+def sum(n) {
+  if (n < 2) {
+    1
+  } else {
+    n + sum(n - 1)
+  }
+}
+
+def double(x) { 2 * x }
+def apply(f, x) { f(x) }
+def double_proxy() { double }
+
+def main() {
+  1
+  * assert(55 == sum(10))
+  * assert(1 == id(1))
+  * assert(2 == id(id)(2))
+  * assert(6 == id(double)(3))
+  * assert(8 == id(double)(id(4)))
+  * assert(10 == apply(double, 5))
+  * assert(12 == double_proxy()(6))
+}

@@ -1,0 +1,7 @@
+// RUN: cat %s | not %tsugu 2>&1 > /dev/null | FileCheck %s
+
+// CHECK: 4:15: expected expression
+def f() { 1 + }
+
+// CHECK: 7:15: expected expression
+def f() { 1 + * 2 }
