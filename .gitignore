@@ -9,3 +9,4 @@
 !.dockerignore
 !.gitignore
 !.gitkeep
+!.travis.yml
