@@ -2,8 +2,10 @@ language: cpp
 compiler:
   - clang
   - gcc
+install:
+  - cd external
+  - make
 script:
   - mkdir build
   - cd build
-  - cmake ..
-  - make && make check
+  - cmake .. && make && make check
