@@ -6,9 +6,9 @@ cache:
   directories:
     - external
 install:
-  - cd external
-  - timeout 60 make || true
+  - cd ${TRAVIS_BUILD_DIR}/external
+  - timeout 1800 make || true
 script:
-  - mkdir build
-  - cd build
+  - mkdir ${TRAVIS_BUILD_DIR}/build
+  - cd ${TRAVIS_BUILD_DIR}/build
   - cmake .. && make && make check
