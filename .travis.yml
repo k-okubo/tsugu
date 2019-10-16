@@ -2,9 +2,12 @@ language: cpp
 compiler:
   - clang
   - gcc
+cache:
+  directories:
+    - external
 install:
   - cd external
-  - make
+  - timeout 60 make
 script:
   - mkdir build
   - cd build
