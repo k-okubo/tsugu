@@ -1,3 +1,6 @@
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffreestanding")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding")
+
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
 add_library(tsugu_core
