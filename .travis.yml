@@ -10,7 +10,7 @@ cache:
     - external
 install:
   - cd ${TRAVIS_BUILD_DIR}/external
-  - timeout 1800 make || true
+  - timeout 2400 make || true
 script:
   - mkdir ${TRAVIS_BUILD_DIR}/build
   - cd ${TRAVIS_BUILD_DIR}/build
