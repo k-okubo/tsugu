@@ -2,9 +2,6 @@ language: cpp
 compiler:
   - clang
   - gcc
-env:
-  - TSUGU_BUILD_TYPE=Debug
-  - TSUGU_BUILD_TYPE=Release
 cache:
   directories:
     - external
@@ -14,4 +11,4 @@ install:
 script:
   - mkdir ${TRAVIS_BUILD_DIR}/build
   - cd ${TRAVIS_BUILD_DIR}/build
-  - cmake -DCMAKE_BUILD_TYPE=${TSUGU_BUILD_TYPE} .. && make && make check
+  - cmake -DCMAKE_BUILD_TYPE=Release .. && make && make check
