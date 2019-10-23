@@ -28,13 +28,17 @@ class Compiler {
   tsg_tyenv_t* root_env;
   tsg_tyenv_t* func_env;
 
-  std::vector<std::vector<llvm::Value*>> value_table;
+  std::vector<llvm::Value*> frame_table;
+  std::vector<llvm::StructType*> frame_types;
+  std::vector<llvm::Value*> function_values;
   FunctionTable* function_table;
 
-  void enterScope(size_t size);
+  void enterScope(tsg_decl_list_t* args, tsg_block_t* block);
   void leaveScope(void);
   void insert(tsg_decl_t* decl, llvm::Value* value);
   llvm::Value* lookup(tsg_decl_t* decl);
+  llvm::Value* varptr(tsg_decl_t* decl);
+  llvm::Value* varptr(int32_t depth, int32_t index);
 
   llvm::Type* convTy(tsg_type_t* type);
   llvm::FunctionType* convFuncTy(tsg_type_t* type);

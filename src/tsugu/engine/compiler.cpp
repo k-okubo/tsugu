@@ -27,13 +27,12 @@ int32_t Compiler::run(tsg_ast_t* ast, tsg_tyenv_t* env) {
   module = moduleOwner.get();
 
   buildAst(ast);
+  module->print(llvm::errs(), nullptr);
 
   if (llvm::verifyModule(*module, &(llvm::errs()))) {
     llvm::errs() << "verifyModule Failed\n";
     return -1;
   }
-
-  module->print(llvm::errs(), nullptr);
 
   std::string err;
   auto engine =
@@ -57,26 +56,88 @@ int32_t Compiler::run(tsg_ast_t* ast, tsg_tyenv_t* env) {
   return result;
 }
 
-void Compiler::enterScope(size_t size) {
-  value_table.push_back(std::vector<llvm::Value*>(size, nullptr));
+void Compiler::enterScope(tsg_decl_list_t* args, tsg_block_t* block) {
+  std::vector<llvm::Type*> variable_types;
+
+  if (frame_types.size() > 0) {
+    variable_types.push_back(frame_types.back()->getPointerTo());
+  } else {
+    variable_types.push_back(builder.getInt1Ty());
+  }
+
+  if (args != nullptr) {
+    auto node = args->head;
+    while (node != nullptr) {
+      auto type = tsg_tyenv_get(func_env, node->decl->type_id);
+      variable_types.push_back(convTy(type));
+      node = node->next;
+    }
+  }
+  if (block != nullptr) {
+    auto node = block->stmts->head;
+    while (node != nullptr) {
+      tsg_stmt_t* stmt = node->stmt;
+      if (stmt->kind == TSG_STMT_VAL) {
+        auto type = tsg_tyenv_get(func_env, stmt->val.decl->type_id);
+        variable_types.push_back(convTy(type));
+      }
+      node = node->next;
+    }
+  }
+
+  auto frame_type = llvm::StructType::get(builder.getContext(), variable_types);
+  frame_types.push_back(frame_type);
+
+  llvm::Value* outer_frame = frame_table.back();
+  llvm::Value* current_frame = builder.CreateAlloca(frame_type);
+  frame_table.push_back(current_frame);
+
+  if (outer_frame != nullptr) {
+    builder.CreateStore(outer_frame, varptr(frame_table.size() - 1, -1));
+  }
 }
 
 void Compiler::leaveScope(void) {
-  value_table.pop_back();
+  frame_table.pop_back();
+  frame_types.pop_back();
 }
 
 void Compiler::insert(tsg_decl_t* decl, llvm::Value* value) {
-  int32_t depth = decl->depth;
-  int32_t index = decl->index;
-
-  value_table[depth][index] = value;
+  if (decl->depth == 0) {
+    function_values[decl->index] = value;
+  } else {
+    builder.CreateStore(value, varptr(decl));
+  }
 }
 
 llvm::Value* Compiler::lookup(tsg_decl_t* decl) {
-  int32_t depth = decl->depth;
-  int32_t index = decl->index;
+  if (decl->depth == 0) {
+    return function_values[decl->index];
+  } else {
+    return builder.CreateLoad(varptr(decl));
+  }
+}
 
-  return value_table[depth][index];
+llvm::Value* Compiler::varptr(tsg_decl_t* decl) {
+  return varptr(decl->depth, decl->index);
+}
+
+llvm::Value* Compiler::varptr(int32_t depth, int32_t index) {
+  llvm::Value* frame = frame_table.back();
+  int32_t current_depth = frame_table.size() - 1;
+
+  while (depth < current_depth) {
+    std::vector<llvm::Value*> elem_idx;
+    elem_idx.push_back(builder.getInt32(0));
+    elem_idx.push_back(builder.getInt32(0));
+    frame = builder.CreateLoad(builder.CreateGEP(frame, elem_idx));
+    current_depth -= 1;
+  }
+
+  std::vector<llvm::Value*> elem_idx;
+  elem_idx.push_back(builder.getInt32(0));
+  elem_idx.push_back(builder.getInt32(index + 1));
+  return builder.CreateGEP(frame, elem_idx);
 }
 
 llvm::Type* Compiler::convTy(tsg_type_t* type) {
@@ -123,7 +184,9 @@ std::vector<llvm::Type*> Compiler::convTyArr(tsg_type_arr_t* arr) {
 }
 
 void Compiler::buildAst(tsg_ast_t* ast) {
-  enterScope(ast->functions->size);
+  // enterScope(ast->functions->size);
+  function_values = std::vector<llvm::Value*>(ast->functions->size, nullptr);
+
   function_table = new FunctionTable();
   tsg_type_t* main_type = nullptr;
 
@@ -140,7 +203,9 @@ void Compiler::buildAst(tsg_ast_t* ast) {
   tsg_tyenv_t* main_env = tsg_tymap_get(main_type->poly.tymap, main_args);
 
   fetchFunc(main_type->poly.func, main_env);
-  leaveScope();
+
+  // leaveScope();
+  function_values.clear();
 }
 
 llvm::Function* Compiler::fetchFunc(tsg_func_t* func, tsg_tyenv_t* env) {
@@ -164,13 +229,13 @@ llvm::Function* Compiler::buildFunc(tsg_func_t* func, tsg_tyenv_t* env) {
   auto body = llvm::BasicBlock::Create(context, "entry", llvm_func);
   builder.SetInsertPoint(body);
 
-  auto prev_scope = std::move(value_table);
-  value_table.assign(1, prev_scope[0]);
+  auto prev_scope = std::move(frame_table);
+  frame_table.assign(1, nullptr);
 
   auto prev_env = this->func_env;
   this->func_env = env;
 
-  enterScope(func->body->n_decls);
+  enterScope(func->args, func->body);
 
   auto node = func->args->head;
   for (auto& arg : llvm_func->args()) {
@@ -194,7 +259,7 @@ llvm::Function* Compiler::buildFunc(tsg_func_t* func, tsg_tyenv_t* env) {
   }
 
   this->func_env = prev_env;
-  value_table = std::move(prev_scope);
+  frame_table = std::move(prev_scope);
 
   return llvm_func;
 }
@@ -260,17 +325,17 @@ llvm::Value* Compiler::buildExprIfelse(tsg_expr_t* expr) {
   llvm::Value* cond = buildExpr(expr->ifelse.cond);
   builder.CreateCondBr(cond, then_block, else_block);
 
-  enterScope(expr->ifelse.thn->n_decls);
   func->getBasicBlockList().push_back(then_block);
   builder.SetInsertPoint(then_block);
+  enterScope(nullptr, expr->ifelse.thn);
   llvm::Value* then_value = buildBlock(expr->ifelse.thn);
   builder.CreateBr(merge_block);
   then_block = builder.GetInsertBlock();
   leaveScope();
 
-  enterScope(expr->ifelse.els->n_decls);
   func->getBasicBlockList().push_back(else_block);
   builder.SetInsertPoint(else_block);
+  enterScope(nullptr, expr->ifelse.els);
   llvm::Value* else_value = buildBlock(expr->ifelse.els);
   builder.CreateBr(merge_block);
   else_block = builder.GetInsertBlock();
