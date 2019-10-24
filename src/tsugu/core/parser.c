@@ -132,7 +132,7 @@ tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
   parser->n_types = 1;
   parser->func_types = 0;
 
-  tsg_ast_t* ast = tsg_malloc_obj(tsg_ast_t);
+  tsg_ast_t* ast = tsg_ast_create();
   ast->functions = parse_func_list(parser);
   expect(parser, TSG_TOKEN_EOF);
 
@@ -140,9 +140,7 @@ tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
 }
 
 tsg_func_list_t* parse_func_list(tsg_parser_t* parser) {
-  tsg_func_list_t* result = tsg_malloc_obj(tsg_func_list_t);
-  result->head = NULL;
-  result->size = 0;
+  tsg_func_list_t* result = tsg_func_list_create();
 
   tsg_func_node_t* last = NULL;
   while (true) {
@@ -156,9 +154,8 @@ tsg_func_list_t* parse_func_list(tsg_parser_t* parser) {
       }
     }
 
-    tsg_func_node_t* node = tsg_malloc_obj(tsg_func_node_t);
+    tsg_func_node_t* node = tsg_func_node_create();
     node->func = func;
-    node->next = NULL;
 
     if (last == NULL) {
       result->head = node;
@@ -183,13 +180,13 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
     error(parser, "expected identifier");
   }
 
-  tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
+  tsg_decl_t* decl = tsg_decl_create();
   decl->name = name;
   decl->type_id = parser->func_types++;
   decl->depth = -1;
   decl->index = -1;
 
-  tsg_func_t* func = tsg_malloc_obj(tsg_func_t);
+  tsg_func_t* func = tsg_func_create();
   func->decl = decl;
   parser->n_types = 1;
 
@@ -206,16 +203,14 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
 }
 
 tsg_block_t* parse_block(tsg_parser_t* parser) {
-  tsg_block_t* block = tsg_malloc_obj(tsg_block_t);
+  tsg_block_t* block = tsg_block_create();
   block->stmts = parse_stmt_list(parser);
   block->n_decls = 0;
   return block;
 }
 
 tsg_stmt_list_t* parse_stmt_list(tsg_parser_t* parser) {
-  tsg_stmt_list_t* result = tsg_malloc_obj(tsg_stmt_list_t);
-  result->head = NULL;
-  result->size = 0;
+  tsg_stmt_list_t* result = tsg_stmt_list_create();
 
   tsg_stmt_node_t* last = NULL;
   while (true) {
@@ -224,9 +219,8 @@ tsg_stmt_list_t* parse_stmt_list(tsg_parser_t* parser) {
       break;
     }
 
-    tsg_stmt_node_t* node = tsg_malloc_obj(tsg_stmt_node_t);
+    tsg_stmt_node_t* node = tsg_stmt_node_create();
     node->stmt = stmt;
-    node->next = NULL;
 
     if (last == NULL) {
       result->head = node;
@@ -273,8 +267,7 @@ tsg_stmt_t* parse_stmt_val(tsg_parser_t* parser) {
     return NULL;
   }
 
-  tsg_stmt_t* stmt = tsg_malloc_obj(tsg_stmt_t);
-  stmt->kind = TSG_STMT_VAL;
+  tsg_stmt_t* stmt = tsg_stmt_create(TSG_STMT_VAL);
 
   stmt->val.decl = parse_decl(parser);
   if (stmt->val.decl == NULL) {
@@ -297,8 +290,7 @@ tsg_stmt_t* parse_stmt_expr(tsg_parser_t* parser) {
     return NULL;
   }
 
-  tsg_stmt_t* stmt = tsg_malloc_obj(tsg_stmt_t);
-  stmt->kind = TSG_STMT_EXPR;
+  tsg_stmt_t* stmt = tsg_stmt_create(TSG_STMT_EXPR);
   stmt->expr.expr = expr;
 
   return stmt;
@@ -327,8 +319,7 @@ tsg_expr_t* parse_expr_binary(tsg_parser_t* parser, int lowest_prec) {
     if (rhs == NULL) {
       error(parser, "expected expression");
     } else {
-      tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-      expr->kind = TSG_EXPR_BINARY;
+      tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_BINARY);
       expr->type_id = parser->n_types++;
       expr->loc.begin = lhs->loc.begin;
       expr->loc.end = rhs->loc.end;
@@ -368,8 +359,7 @@ tsg_expr_t* parse_expr_call(tsg_parser_t* parser, tsg_expr_t* operand) {
   tsg_source_position_t end = parser->token.loc.end;
   expect(parser, TSG_TOKEN_RPAREN);
 
-  tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-  expr->kind = TSG_EXPR_CALL;
+  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_CALL);
   expr->type_id = parser->n_types++;
   expr->loc.begin = operand->loc.begin;
   expr->loc.end = end;
@@ -443,8 +433,7 @@ tsg_expr_t* parse_expr_ifelse(tsg_parser_t* parser) {
   tsg_source_position_t end = parser->token.loc.end;
   expect(parser, TSG_TOKEN_RBRACE);
 
-  tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-  expr->kind = TSG_EXPR_IFELSE;
+  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_IFELSE);
   expr->type_id = parser->n_types++;
   expr->loc.begin = begin;
   expr->loc.end = end;
@@ -461,8 +450,7 @@ tsg_expr_t* parse_expr_variable(tsg_parser_t* parser) {
     return NULL;
   }
 
-  tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-  expr->kind = TSG_EXPR_VARIABLE;
+  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_VARIABLE);
   expr->type_id = parser->n_types++;
   expr->loc = ident->loc;
   expr->variable.name = ident;
@@ -485,8 +473,7 @@ tsg_expr_t* parse_expr_number(tsg_parser_t* parser) {
     ptr++;
   }
 
-  tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-  expr->kind = TSG_EXPR_NUMBER;
+  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_NUMBER);
   expr->type_id = parser->n_types++;
   expr->loc = parser->token.loc;
   expr->number.value = number;
@@ -496,9 +483,7 @@ tsg_expr_t* parse_expr_number(tsg_parser_t* parser) {
 }
 
 tsg_expr_list_t* parse_expr_list(tsg_parser_t* parser) {
-  tsg_expr_list_t* result = tsg_malloc_obj(tsg_expr_list_t);
-  result->head = NULL;
-  result->size = 0;
+  tsg_expr_list_t* result = tsg_expr_list_create();
 
   tsg_expr_node_t* last = NULL;
   while (true) {
@@ -510,9 +495,8 @@ tsg_expr_list_t* parse_expr_list(tsg_parser_t* parser) {
       break;
     }
 
-    tsg_expr_node_t* node = tsg_malloc_obj(tsg_expr_node_t);
+    tsg_expr_node_t* node = tsg_expr_node_create();
     node->expr = expr;
-    node->next = NULL;
 
     if (last == NULL) {
       result->head = node;
@@ -537,7 +521,7 @@ tsg_decl_t* parse_decl(tsg_parser_t* parser) {
     return NULL;
   }
 
-  tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
+  tsg_decl_t* decl = tsg_decl_create();
   decl->name = ident;
   decl->type_id = parser->n_types++;
   decl->depth = -1;
@@ -547,9 +531,7 @@ tsg_decl_t* parse_decl(tsg_parser_t* parser) {
 }
 
 tsg_decl_list_t* parse_decl_list(tsg_parser_t* parser) {
-  tsg_decl_list_t* result = tsg_malloc_obj(tsg_decl_list_t);
-  result->head = NULL;
-  result->size = 0;
+  tsg_decl_list_t* result = tsg_decl_list_create();
 
   tsg_decl_node_t* last = NULL;
   while (true) {
@@ -561,9 +543,8 @@ tsg_decl_list_t* parse_decl_list(tsg_parser_t* parser) {
       break;
     }
 
-    tsg_decl_node_t* node = tsg_malloc_obj(tsg_decl_node_t);
+    tsg_decl_node_t* node = tsg_decl_node_create();
     node->decl = decl;
-    node->next = NULL;
 
     if (last == NULL) {
       result->head = node;
@@ -590,7 +571,7 @@ tsg_ident_t* parse_ident(tsg_parser_t* parser) {
   const uint8_t* src = parser->token.value.buffer;
   size_t nbytes = parser->token.value.nbytes;
 
-  tsg_ident_t* ident = tsg_malloc_obj(tsg_ident_t);
+  tsg_ident_t* ident = tsg_ident_create();
   ident->buffer = tsg_malloc_arr(uint8_t, nbytes + 1);
   tsg_memcpy(ident->buffer, src, nbytes);
   ident->buffer[nbytes] = 0;

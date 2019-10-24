@@ -47,6 +47,9 @@ struct tsg_ast_s {
   tsg_func_list_t* functions;
 };
 
+tsg_ast_t* tsg_ast_create(void);
+void tsg_ast_destroy(tsg_ast_t* ast);
+
 struct tsg_func_s {
   tsg_decl_t* decl;
   tsg_decl_list_t* args;
@@ -54,10 +57,16 @@ struct tsg_func_s {
   int32_t n_types;
 };
 
+tsg_func_t* tsg_func_create(void);
+void tsg_func_destroy(tsg_func_t* func);
+
 struct tsg_block_s {
   tsg_stmt_list_t* stmts;
   size_t n_decls;
 };
+
+tsg_block_t* tsg_block_create(void);
+void tsg_block_destroy(tsg_block_t* block);
 
 struct tsg_stmt_val_s {
   tsg_decl_t* decl;
@@ -76,6 +85,9 @@ struct tsg_stmt_s {
     struct tsg_stmt_expr_s expr;
   };
 };
+
+tsg_stmt_t* tsg_stmt_create(tsg_stmt_kind_t kind);
+void tsg_stmt_destroy(tsg_stmt_t* stmt);
 
 struct tsg_expr_binary_s {
   tsg_token_kind_t op;
@@ -117,6 +129,9 @@ struct tsg_expr_s {
   };
 };
 
+tsg_expr_t* tsg_expr_create(tsg_expr_kind_t kind);
+void tsg_expr_destroy(tsg_expr_t* expr);
+
 struct tsg_decl_s {
   tsg_ident_t* name;
   int32_t type_id;
@@ -124,11 +139,18 @@ struct tsg_decl_s {
   int32_t index;
 };
 
+tsg_decl_t* tsg_decl_create(void);
+void tsg_decl_destroy(tsg_decl_t* decl);
+
 struct tsg_ident_s {
   uint8_t* buffer;
   size_t nbytes;
   tsg_source_range_t loc;
 };
+
+tsg_ident_t* tsg_ident_create(void);
+void tsg_ident_destroy(tsg_ident_t* ident);
+const char* tsg_ident_cstr(tsg_ident_t* ident);
 
 struct tsg_func_list_s {
   tsg_func_node_t* head;
@@ -140,6 +162,10 @@ struct tsg_func_node_s {
   tsg_func_node_t* next;
 };
 
+tsg_func_list_t* tsg_func_list_create(void);
+tsg_func_node_t* tsg_func_node_create(void);
+void tsg_func_list_destroy(tsg_func_list_t* func_list);
+
 struct tsg_stmt_list_s {
   tsg_stmt_node_t* head;
   size_t size;
@@ -149,6 +175,10 @@ struct tsg_stmt_node_s {
   tsg_stmt_t* stmt;
   tsg_stmt_node_t* next;
 };
+
+tsg_stmt_list_t* tsg_stmt_list_create(void);
+tsg_stmt_node_t* tsg_stmt_node_create(void);
+void tsg_stmt_list_destroy(tsg_stmt_list_t* stmt_list);
 
 struct tsg_expr_list_s {
   tsg_expr_node_t* head;
@@ -160,6 +190,10 @@ struct tsg_expr_node_s {
   tsg_expr_node_t* next;
 };
 
+tsg_expr_list_t* tsg_expr_list_create(void);
+tsg_expr_node_t* tsg_expr_node_create(void);
+void tsg_expr_list_destroy(tsg_expr_list_t* expr_list);
+
 struct tsg_decl_list_s {
   tsg_decl_node_t* head;
   size_t size;
@@ -170,8 +204,9 @@ struct tsg_decl_node_s {
   tsg_decl_node_t* next;
 };
 
-const char* tsg_ident_cstr(tsg_ident_t* ident);
-void tsg_ast_destroy(tsg_ast_t* ast);
+tsg_decl_list_t* tsg_decl_list_create(void);
+tsg_decl_node_t* tsg_decl_node_create(void);
+void tsg_decl_list_destroy(tsg_decl_list_t* decl_list);
 
 #ifdef __cplusplus
 }
