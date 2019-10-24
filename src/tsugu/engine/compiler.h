@@ -54,9 +54,9 @@ class Compiler {
   llvm::Value* buildStmtExpr(tsg_stmt_t* stmt);
 
   llvm::Value* buildExpr(tsg_expr_t* expr);
-  llvm::Value* buildExprIfelse(tsg_expr_t* expr);
   llvm::Value* buildExprBinary(tsg_expr_t* expr);
   llvm::Value* buildExprCall(tsg_expr_t* expr);
+  llvm::Value* buildExprIfelse(tsg_expr_t* expr);
   llvm::Value* buildExprVariable(tsg_expr_t* expr);
   llvm::Value* buildExprNumber(tsg_expr_t* expr);
 };

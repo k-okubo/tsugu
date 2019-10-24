@@ -14,9 +14,9 @@ extern "C" {
 #endif
 
 typedef enum {
-  TSG_EXPR_IFELSE,
   TSG_EXPR_BINARY,
   TSG_EXPR_CALL,
+  TSG_EXPR_IFELSE,
   TSG_EXPR_VARIABLE,
   TSG_EXPR_NUMBER,
 } tsg_expr_kind_t;

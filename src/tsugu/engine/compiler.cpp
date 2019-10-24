@@ -301,12 +301,12 @@ llvm::Value* Compiler::buildStmtExpr(tsg_stmt_t* stmt) {
 
 llvm::Value* Compiler::buildExpr(tsg_expr_t* expr) {
   switch (expr->kind) {
-    case TSG_EXPR_IFELSE:
-      return buildExprIfelse(expr);
     case TSG_EXPR_BINARY:
       return buildExprBinary(expr);
     case TSG_EXPR_CALL:
       return buildExprCall(expr);
+    case TSG_EXPR_IFELSE:
+      return buildExprIfelse(expr);
     case TSG_EXPR_VARIABLE:
       return buildExprVariable(expr);
     case TSG_EXPR_NUMBER:
