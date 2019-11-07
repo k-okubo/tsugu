@@ -7,7 +7,9 @@
 #ifndef TSUGU_CORE_AST_H
 #define TSUGU_CORE_AST_H
 
+#include <tsugu/core/frame.h>
 #include <tsugu/core/token.h>
+#include <tsugu/core/tyenv.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +19,7 @@ typedef enum {
   TSG_EXPR_BINARY,
   TSG_EXPR_CALL,
   TSG_EXPR_IFELSE,
-  TSG_EXPR_VARIABLE,
+  TSG_EXPR_IDENT,
   TSG_EXPR_NUMBER,
 } tsg_expr_kind_t;
 
@@ -27,8 +29,8 @@ typedef enum {
 } tsg_stmt_kind_t;
 
 typedef struct tsg_ast_s tsg_ast_t;
-typedef struct tsg_func_s tsg_func_t;
 typedef struct tsg_block_s tsg_block_t;
+typedef struct tsg_func_s tsg_func_t;
 typedef struct tsg_stmt_s tsg_stmt_t;
 typedef struct tsg_expr_s tsg_expr_t;
 typedef struct tsg_decl_s tsg_decl_t;
@@ -44,29 +46,32 @@ typedef struct tsg_decl_list_s tsg_decl_list_t;
 typedef struct tsg_decl_node_s tsg_decl_node_t;
 
 struct tsg_ast_s {
-  tsg_func_list_t* functions;
+  tsg_func_t* root;
+  tsg_tyenv_t* tyenv;
 };
 
 tsg_ast_t* tsg_ast_create(void);
 void tsg_ast_destroy(tsg_ast_t* ast);
 
-struct tsg_func_s {
-  tsg_decl_t* decl;
-  tsg_decl_list_t* args;
-  tsg_block_t* body;
-  int32_t n_types;
-};
-
-tsg_func_t* tsg_func_create(void);
-void tsg_func_destroy(tsg_func_t* func);
-
 struct tsg_block_s {
+  tsg_func_list_t* funcs;
   tsg_stmt_list_t* stmts;
-  size_t n_decls;
 };
 
 tsg_block_t* tsg_block_create(void);
 void tsg_block_destroy(tsg_block_t* block);
+
+struct tsg_func_s {
+  tsg_decl_t* decl;
+  tsg_tyset_t* tyset;
+  tsg_frame_t* frame;
+  tsg_tyvar_t* ftype;
+  tsg_decl_list_t* params;
+  tsg_block_t* body;
+};
+
+tsg_func_t* tsg_func_create(void);
+void tsg_func_destroy(tsg_func_t* func);
 
 struct tsg_stmt_val_s {
   tsg_decl_t* decl;
@@ -106,9 +111,9 @@ struct tsg_expr_ifelse_s {
   tsg_block_t* els;
 };
 
-struct tsg_expr_variable_s {
+struct tsg_expr_ident_s {
   tsg_ident_t* name;
-  tsg_decl_t* resolved;
+  tsg_member_t* object;
 };
 
 struct tsg_expr_number_s {
@@ -117,14 +122,14 @@ struct tsg_expr_number_s {
 
 struct tsg_expr_s {
   tsg_expr_kind_t kind;
-  int32_t type_id;
+  tsg_tyvar_t* tyvar;
   tsg_source_range_t loc;
 
   union {
     struct tsg_expr_binary_s binary;
     struct tsg_expr_call_s call;
     struct tsg_expr_ifelse_s ifelse;
-    struct tsg_expr_variable_s variable;
+    struct tsg_expr_ident_s ident;
     struct tsg_expr_number_s number;
   };
 };
@@ -134,9 +139,7 @@ void tsg_expr_destroy(tsg_expr_t* expr);
 
 struct tsg_decl_s {
   tsg_ident_t* name;
-  int32_t type_id;
-  int32_t depth;
-  int32_t index;
+  tsg_member_t* object;
 };
 
 tsg_decl_t* tsg_decl_create(void);

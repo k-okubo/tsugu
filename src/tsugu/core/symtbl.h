@@ -7,9 +7,7 @@
 #ifndef TSUGU_CORE_SYMTBL_H
 #define TSUGU_CORE_SYMTBL_H
 
-#include <tsugu/core/ast.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include <tsugu/core/scope.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,9 +19,9 @@ tsg_symtbl_t* tsg_symtbl_create(void);
 void tsg_symtbl_destroy(tsg_symtbl_t* symtbl);
 void tsg_symtbl_clear(tsg_symtbl_t* symtbl);
 
-bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_decl_t* decl);
-bool tsg_symtbl_lookup(tsg_symtbl_t* symtbl, tsg_ident_t* key,
-                       tsg_decl_t** outval);
+bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_ident_t* ident,
+                       tsg_member_t* member);
+tsg_member_t* tsg_symtbl_lookup(tsg_symtbl_t* symtbl, tsg_ident_t* ident);
 
 #ifdef __cplusplus
 }

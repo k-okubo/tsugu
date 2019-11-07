@@ -2,7 +2,5 @@
 
 def a(f) { f(0) }
 
-def main() {
-  // CHECK: callee is not a function
-  a(0)
-}
+// CHECK: callee is not a function
+a(0)

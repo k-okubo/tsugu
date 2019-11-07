@@ -3,7 +3,5 @@
 def a(f) { f(0) }
 def b(x) { x + 1 }
 
-def main() {
-  // CHECK: incompatible type
-  b(a)
-}
+// CHECK: incompatible type
+b(a)

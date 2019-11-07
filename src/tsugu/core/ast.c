@@ -7,6 +7,7 @@
 #include <tsugu/core/ast.h>
 
 #include <tsugu/core/memory.h>
+#include <tsugu/core/platform.h>
 
 static void destroy_stmt_val(tsg_stmt_t* stmt);
 static void destroy_stmt_expr(tsg_stmt_t* stmt);
@@ -14,15 +15,14 @@ static void destroy_stmt_expr(tsg_stmt_t* stmt);
 static void destroy_expr_binary(tsg_expr_t* expr);
 static void destroy_expr_call(tsg_expr_t* expr);
 static void destroy_expr_ifelse(tsg_expr_t* expr);
-static void destroy_expr_variable(tsg_expr_t* expr);
+static void destroy_expr_ident(tsg_expr_t* expr);
 
 tsg_ast_t* tsg_ast_create(void) {
   tsg_ast_t* ast = tsg_malloc_obj(tsg_ast_t);
-  if (ast == NULL) {
-    return NULL;
-  }
 
-  ast->functions = NULL;
+  ast->root = NULL;
+  ast->tyenv = NULL;
+
   return ast;
 }
 
@@ -31,20 +31,39 @@ void tsg_ast_destroy(tsg_ast_t* ast) {
     return;
   }
 
-  tsg_func_list_destroy(ast->functions);
+  tsg_func_destroy(ast->root);
+  tsg_tyenv_destroy(ast->tyenv);
   tsg_free(ast);
+}
+
+tsg_block_t* tsg_block_create(void) {
+  tsg_block_t* block = tsg_malloc_obj(tsg_block_t);
+
+  block->funcs = NULL;
+  block->stmts = NULL;
+
+  return block;
+}
+
+void tsg_block_destroy(tsg_block_t* block) {
+  if (block == NULL) {
+    return;
+  }
+
+  tsg_func_list_destroy(block->funcs);
+  tsg_stmt_list_destroy(block->stmts);
+  tsg_free(block);
 }
 
 tsg_func_t* tsg_func_create(void) {
   tsg_func_t* func = tsg_malloc_obj(tsg_func_t);
-  if (func == NULL) {
-    return NULL;
-  }
 
   func->decl = NULL;
-  func->args = NULL;
+  func->tyset = NULL;
+  func->frame = NULL;
+  func->ftype = NULL;
+  func->params = NULL;
   func->body = NULL;
-  func->n_types = 0;
 
   return func;
 }
@@ -55,39 +74,20 @@ void tsg_func_destroy(tsg_func_t* func) {
   }
 
   tsg_decl_destroy(func->decl);
-  tsg_decl_list_destroy(func->args);
+  tsg_tyset_destroy(func->tyset);
+  tsg_frame_destroy(func->frame);
+  tsg_tyvar_destroy(func->ftype);
+  tsg_decl_list_destroy(func->params);
   tsg_block_destroy(func->body);
   tsg_free(func);
 }
 
-tsg_block_t* tsg_block_create(void) {
-  tsg_block_t* block = tsg_malloc_obj(tsg_block_t);
-  if (block == NULL) {
-    return NULL;
-  }
-
-  block->stmts = NULL;
-  block->n_decls = 0;
-
-  return block;
-}
-
-void tsg_block_destroy(tsg_block_t* block) {
-  if (block == NULL) {
-    return;
-  }
-
-  tsg_stmt_list_destroy(block->stmts);
-  tsg_free(block);
-}
-
 tsg_stmt_t* tsg_stmt_create(tsg_stmt_kind_t kind) {
   tsg_stmt_t* stmt = tsg_malloc_obj(tsg_stmt_t);
-  if (stmt == NULL) {
-    return NULL;
-  }
 
+  tsg_memset(stmt, 0, sizeof(tsg_stmt_t));
   stmt->kind = kind;
+
   return stmt;
 }
 
@@ -110,26 +110,21 @@ void tsg_stmt_destroy(tsg_stmt_t* stmt) {
 }
 
 void destroy_stmt_val(tsg_stmt_t* stmt) {
+  tsg_assert(stmt != NULL && stmt->kind == TSG_STMT_VAL);
   tsg_decl_destroy(stmt->val.decl);
   tsg_expr_destroy(stmt->val.expr);
 }
 
 void destroy_stmt_expr(tsg_stmt_t* stmt) {
+  tsg_assert(stmt != NULL && stmt->kind == TSG_STMT_EXPR);
   tsg_expr_destroy(stmt->expr.expr);
 }
 
 tsg_expr_t* tsg_expr_create(tsg_expr_kind_t kind) {
   tsg_expr_t* expr = tsg_malloc_obj(tsg_expr_t);
-  if (expr == NULL) {
-    return NULL;
-  }
 
+  tsg_memset(expr, 0, sizeof(tsg_expr_t));
   expr->kind = kind;
-  expr->type_id = 0;
-  expr->loc.begin.line = 0;
-  expr->loc.begin.column = 0;
-  expr->loc.end.line = 0;
-  expr->loc.end.column = 0;
 
   return expr;
 }
@@ -152,47 +147,48 @@ void tsg_expr_destroy(tsg_expr_t* expr) {
       destroy_expr_ifelse(expr);
       break;
 
-    case TSG_EXPR_VARIABLE:
-      destroy_expr_variable(expr);
+    case TSG_EXPR_IDENT:
+      destroy_expr_ident(expr);
       break;
 
     case TSG_EXPR_NUMBER:
       break;
   }
 
+  tsg_tyvar_destroy(expr->tyvar);
   tsg_free(expr);
 }
 
 void destroy_expr_binary(tsg_expr_t* expr) {
+  tsg_assert(expr != NULL && expr->kind == TSG_EXPR_BINARY);
   tsg_expr_destroy(expr->binary.lhs);
   tsg_expr_destroy(expr->binary.rhs);
 }
 
 void destroy_expr_call(tsg_expr_t* expr) {
+  tsg_assert(expr != NULL && expr->kind == TSG_EXPR_CALL);
   tsg_expr_destroy(expr->call.callee);
   tsg_expr_list_destroy(expr->call.args);
 }
 
 void destroy_expr_ifelse(tsg_expr_t* expr) {
+  tsg_assert(expr != NULL && expr->kind == TSG_EXPR_IFELSE);
   tsg_expr_destroy(expr->ifelse.cond);
   tsg_block_destroy(expr->ifelse.thn);
   tsg_block_destroy(expr->ifelse.els);
 }
 
-void destroy_expr_variable(tsg_expr_t* expr) {
-  tsg_ident_destroy(expr->variable.name);
+void destroy_expr_ident(tsg_expr_t* expr) {
+  tsg_assert(expr != NULL && expr->kind == TSG_EXPR_IDENT);
+  tsg_ident_destroy(expr->ident.name);
+  // `expr->ident.object` is a reference
 }
 
 tsg_decl_t* tsg_decl_create(void) {
   tsg_decl_t* decl = tsg_malloc_obj(tsg_decl_t);
-  if (decl == NULL) {
-    return NULL;
-  }
 
   decl->name = NULL;
-  decl->type_id = 0;
-  decl->depth = 0;
-  decl->index = 0;
+  decl->object = NULL;
 
   return decl;
 }
@@ -203,21 +199,14 @@ void tsg_decl_destroy(tsg_decl_t* decl) {
   }
 
   tsg_ident_destroy(decl->name);
+  // `decl->object` is a reference
   tsg_free(decl);
 }
 
 tsg_ident_t* tsg_ident_create(void) {
   tsg_ident_t* ident = tsg_malloc_obj(tsg_ident_t);
-  if (ident == NULL) {
-    return NULL;
-  }
 
-  ident->buffer = NULL;
-  ident->nbytes = 0;
-  ident->loc.begin.line = 0;
-  ident->loc.begin.column = 0;
-  ident->loc.end.line = 0;
-  ident->loc.end.column = 0;
+  tsg_memset(ident, 0, sizeof(tsg_ident_t));
 
   return ident;
 }
@@ -237,9 +226,6 @@ const char* tsg_ident_cstr(tsg_ident_t* ident) {
 
 tsg_func_list_t* tsg_func_list_create(void) {
   tsg_func_list_t* list = tsg_malloc_obj(tsg_func_list_t);
-  if (list == NULL) {
-    return NULL;
-  }
 
   list->head = NULL;
   list->size = 0;
@@ -249,9 +235,6 @@ tsg_func_list_t* tsg_func_list_create(void) {
 
 tsg_func_node_t* tsg_func_node_create(void) {
   tsg_func_node_t* node = tsg_malloc_obj(tsg_func_node_t);
-  if (node == NULL) {
-    return NULL;
-  }
 
   node->func = NULL;
   node->next = NULL;
@@ -265,20 +248,18 @@ void tsg_func_list_destroy(tsg_func_list_t* list) {
   }
 
   tsg_func_node_t* node = list->head;
-  while (node) {
+  while (node != NULL) {
     tsg_func_node_t* next = node->next;
     tsg_func_destroy(node->func);
     tsg_free(node);
     node = next;
   }
+
   tsg_free(list);
 }
 
 tsg_stmt_list_t* tsg_stmt_list_create(void) {
   tsg_stmt_list_t* list = tsg_malloc_obj(tsg_stmt_list_t);
-  if (list == NULL) {
-    return NULL;
-  }
 
   list->head = NULL;
   list->size = 0;
@@ -288,9 +269,6 @@ tsg_stmt_list_t* tsg_stmt_list_create(void) {
 
 tsg_stmt_node_t* tsg_stmt_node_create(void) {
   tsg_stmt_node_t* node = tsg_malloc_obj(tsg_stmt_node_t);
-  if (node == NULL) {
-    return NULL;
-  }
 
   node->stmt = NULL;
   node->next = NULL;
@@ -310,14 +288,12 @@ void tsg_stmt_list_destroy(tsg_stmt_list_t* list) {
     tsg_free(node);
     node = next;
   }
+
   tsg_free(list);
 }
 
 tsg_expr_list_t* tsg_expr_list_create(void) {
   tsg_expr_list_t* list = tsg_malloc_obj(tsg_expr_list_t);
-  if (list == NULL) {
-    return NULL;
-  }
 
   list->head = NULL;
   list->size = 0;
@@ -327,9 +303,6 @@ tsg_expr_list_t* tsg_expr_list_create(void) {
 
 tsg_expr_node_t* tsg_expr_node_create(void) {
   tsg_expr_node_t* node = tsg_malloc_obj(tsg_expr_node_t);
-  if (node == NULL) {
-    return NULL;
-  }
 
   node->expr = NULL;
   node->next = NULL;
@@ -349,14 +322,12 @@ void tsg_expr_list_destroy(tsg_expr_list_t* list) {
     tsg_free(node);
     node = next;
   }
+
   tsg_free(list);
 }
 
 tsg_decl_list_t* tsg_decl_list_create(void) {
   tsg_decl_list_t* list = tsg_malloc_obj(tsg_decl_list_t);
-  if (list == NULL) {
-    return NULL;
-  }
 
   list->head = NULL;
   list->size = 0;
@@ -366,9 +337,6 @@ tsg_decl_list_t* tsg_decl_list_create(void) {
 
 tsg_decl_node_t* tsg_decl_node_create(void) {
   tsg_decl_node_t* node = tsg_malloc_obj(tsg_decl_node_t);
-  if (node == NULL) {
-    return NULL;
-  }
 
   node->decl = NULL;
   node->next = NULL;
@@ -388,5 +356,6 @@ void tsg_decl_list_destroy(tsg_decl_list_t* list) {
     tsg_free(node);
     node = next;
   }
+
   tsg_free(list);
 }

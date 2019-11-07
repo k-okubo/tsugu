@@ -2,7 +2,5 @@
 
 def id(x) { x }
 
-def main() {
-  // CHECK: 7:3: callee is not a function
-  id(1)(0)
-}
+// CHECK: 6:1: callee is not a function
+id(1)(0)

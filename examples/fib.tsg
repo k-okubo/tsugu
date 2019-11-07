@@ -6,6 +6,4 @@ def fib(n) {
   }
 }
 
-def main() {
-  fib(46)
-}
+fib(46)

@@ -41,3 +41,11 @@ size_t tsg_strlen(const char* str) {
   (void)str;
   return 0;
 }
+
+void tsg_assert_failure(const char* expr, const char* file, int line,
+                        const char* func) {
+  (void)expr;
+  (void)file;
+  (void)line;
+  (void)func;
+}

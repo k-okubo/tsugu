@@ -14,7 +14,8 @@
 
 typedef struct record_s record_t;
 struct record_s {
-  tsg_decl_t* payload;
+  tsg_ident_t* key;
+  tsg_member_t* val;
 };
 
 struct tsg_symtbl_s {
@@ -61,17 +62,19 @@ void tsg_symtbl_clear(tsg_symtbl_t* symtbl) {
   tsg_memset(symtbl->table, 0, sizeof(record_t) * nslots);
 }
 
-bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_decl_t* decl) {
+bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_ident_t* ident,
+                       tsg_member_t* member) {
   while (true) {
-    record_t* record = find_record(symtbl, decl->name);
+    record_t* record = find_record(symtbl, ident);
 
     if (record != NULL) {
-      if (record->payload != NULL) {
+      if (record->key != NULL) {
         // already exists
         return false;
       } else {
         // add new entry
-        record->payload = decl;
+        record->key = ident;
+        record->val = member;
         return true;
       }
     } else {
@@ -81,18 +84,16 @@ bool tsg_symtbl_insert(tsg_symtbl_t* symtbl, tsg_decl_t* decl) {
   }
 }
 
-bool tsg_symtbl_lookup(tsg_symtbl_t* symtbl, tsg_ident_t* key,
-                       tsg_decl_t** outval) {
-  record_t* record = find_record(symtbl, key);
+tsg_member_t* tsg_symtbl_lookup(tsg_symtbl_t* symtbl, tsg_ident_t* ident) {
+  record_t* record = find_record(symtbl, ident);
 
   if (record != NULL) {
-    if (record->payload != NULL) {
-      *outval = record->payload;
-      return true;
+    if (record->key != NULL) {
+      return record->val;
     }
   }
 
-  return false;
+  return NULL;
 }
 
 record_t* find_record(tsg_symtbl_t* symtbl, tsg_ident_t* key) {
@@ -102,10 +103,10 @@ record_t* find_record(tsg_symtbl_t* symtbl, tsg_ident_t* key) {
   for (size_t i = 0; i < NAMETABLE_LINEAR_SEARCH_LIMIT; i++) {
     record_t* record = symtbl->table + ((base_idx + i) & mask);
 
-    if (record->payload == NULL) {
+    if (record->key == NULL) {
       return record;
     }
-    if (same_ident(record->payload->name, key)) {
+    if (same_ident(record->key, key)) {
       return record;
     }
   }
@@ -136,8 +137,8 @@ bool restore_entries(record_t* src_rec, size_t nslots, tsg_symtbl_t* dst) {
   record_t* end = src_rec + nslots;
 
   while (src_rec < end) {
-    if (src_rec->payload != NULL) {
-      record_t* dst_rec = find_record(dst, src_rec->payload->name);
+    if (src_rec->key != NULL) {
+      record_t* dst_rec = find_record(dst, src_rec->key);
       if (dst_rec == NULL) {
         return false;
       }

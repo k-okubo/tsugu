@@ -80,6 +80,8 @@ int main(void) {
   tsg_scanner_destroy(scanner);
   free(buffer);
 
+  printf("parse ok\n");
+
   tsg_resolver_t* resolver = tsg_resolver_create();
   if (tsg_resolver_resolve(resolver, ast) == false) {
     tsg_resolver_error(resolver, &errors);
@@ -87,9 +89,8 @@ int main(void) {
     return 1;
   }
 
-  tsg_tyenv_t* tyenv = NULL;
   tsg_verifier_t* verifier = tsg_verifier_create();
-  if (tsg_verifier_verify(verifier, ast, &tyenv) == false) {
+  if (tsg_verifier_verify(verifier, ast) == false) {
     tsg_verifier_error(verifier, &errors);
     print_errors(&errors);
     return 1;
@@ -99,10 +100,12 @@ int main(void) {
   tsg_verifier_destroy(verifier);
   tsg_resolver_destroy(resolver);
 
-  int32_t ret = tsg_engine_run_ast(ast, tyenv);
+  printf("engine start\n");
+  int32_t ret = tsg_engine_run_ast(ast);
   printf("result = %" PRIi32 "\n", ret);
 
   tsg_ast_destroy(ast);
+  printf("finalize ok\n");
 
   return 0;
 }

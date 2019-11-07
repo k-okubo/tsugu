@@ -1,30 +1,28 @@
 // RUN: cat %s | not %tsugu 2>&1 > /dev/null | FileCheck %s
 
-def main() {
-  // CHECK: 5:6: expected '('
-  if a { 1 } else { 0 };
+// CHECK: 4:4: expected '('
+if a { 1 } else { 0 };
 
-  // CHECK: 8:7: expected expression
-  if () { 1 } else { 0 };
+// CHECK: 7:5: expected expression
+if () { 1 } else { 0 };
 
-  // CHECK: 11:9: expected ')'
-  if (a { 1 } else { 0 };
+// CHECK: 10:7: expected ')'
+if (a { 1 } else { 0 };
 
-  // CHECK: 14:10: expected '{'
-  if (a) 1 else { 0 };
+// CHECK: 13:8: expected '{'
+if (a) 1 else { 0 };
 
-  // CHECK: 17:14: expected ';'
-  if (a) { 1 else { 0 };
+// CHECK: 16:12: expected ';'
+if (a) { 1 else { 0 };
 
-  // CHECK: 20:12: block is empty
-  if (a) { } else { 0 };
+// CHECK: 19:10: block is empty
+if (a) { } else { 0 };
 
-  // CHECK: 23:21: expected '{'
-  if (a) { 1 } else 0 };
+// CHECK: 22:19: expected '{'
+if (a) { 1 } else 0 };
 
-  // CHECK: 26:23: block is empty
-  if (a) { 1 } else { };
+// CHECK: 25:21: block is empty
+if (a) { 1 } else { };
 
-  // CHECK: 31:1: expected '}'
-  if (a) { 1 } else { 0;
-}
+// CHECK: 29:1: expected '}'
+if (a) { 1 } else { 0;

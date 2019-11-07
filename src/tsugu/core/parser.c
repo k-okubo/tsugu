@@ -17,8 +17,6 @@ struct tsg_parser_s {
   tsg_errlist_t errors;
   int32_t last_line;
   int32_t last_error_line;
-  int32_t func_types;
-  int32_t n_types;
 };
 
 static void next(tsg_parser_t* parser);
@@ -27,11 +25,14 @@ static bool expect(tsg_parser_t* parser, tsg_token_kind_t token_kind);
 static void error(tsg_parser_t* parser, const char* format, ...);
 static int_fast8_t token_prec(tsg_token_kind_t token_kind);
 
-static tsg_func_list_t* parse_func_list(tsg_parser_t* parser);
-static tsg_func_t* parse_func(tsg_parser_t* parser);
 static tsg_block_t* parse_block(tsg_parser_t* parser);
-
-static tsg_stmt_list_t* parse_stmt_list(tsg_parser_t* parser);
+static tsg_func_node_t* parse_func_node(tsg_parser_t* parser,
+                                        tsg_func_list_t* list,
+                                        tsg_func_node_t* tail);
+static tsg_stmt_node_t* parse_stmt_node(tsg_parser_t* parser,
+                                        tsg_stmt_list_t* list,
+                                        tsg_stmt_node_t* tail);
+static tsg_func_t* parse_func(tsg_parser_t* parser);
 static tsg_stmt_t* parse_stmt(tsg_parser_t* parser);
 static tsg_stmt_t* parse_stmt_val(tsg_parser_t* parser);
 static tsg_stmt_t* parse_stmt_expr(tsg_parser_t* parser);
@@ -43,7 +44,7 @@ static tsg_expr_t* parse_expr_call(tsg_parser_t* parser, tsg_expr_t* operand);
 static tsg_expr_t* parse_expr_operand(tsg_parser_t* parser);
 static tsg_expr_t* parse_expr_paren(tsg_parser_t* parser);
 static tsg_expr_t* parse_expr_ifelse(tsg_parser_t* parser);
-static tsg_expr_t* parse_expr_variable(tsg_parser_t* parser);
+static tsg_expr_t* parse_expr_ident(tsg_parser_t* parser);
 static tsg_expr_t* parse_expr_number(tsg_parser_t* parser);
 static tsg_expr_list_t* parse_expr_list(tsg_parser_t* parser);
 
@@ -129,45 +130,101 @@ int_fast8_t token_prec(tsg_token_kind_t token_kind) {
 }
 
 tsg_ast_t* tsg_parser_parse(tsg_parser_t* parser) {
-  parser->n_types = 1;
-  parser->func_types = 0;
-
   tsg_ast_t* ast = tsg_ast_create();
-  ast->functions = parse_func_list(parser);
+  tsg_func_t* root_func = tsg_func_create();
+  tsg_decl_t* root_decl = tsg_decl_create();
+  tsg_ident_t* root_name = tsg_ident_create();
+
+  ast->root = root_func;
+  root_decl->name = root_name;
+  root_name->buffer = tsg_malloc_arr(uint8_t, 6);
+  root_name->nbytes = 6;
+  tsg_memcpy(root_name->buffer, "$main", 6);
+
+  root_func->decl = root_decl;
+  root_func->params = tsg_decl_list_create();
+  root_func->body = parse_block(parser);
+
   expect(parser, TSG_TOKEN_EOF);
 
   return ast;
 }
 
-tsg_func_list_t* parse_func_list(tsg_parser_t* parser) {
-  tsg_func_list_t* result = tsg_func_list_create();
+tsg_block_t* parse_block(tsg_parser_t* parser) {
+  tsg_block_t* block = tsg_block_create();
+  block->funcs = tsg_func_list_create();
+  block->stmts = tsg_stmt_list_create();
 
-  tsg_func_node_t* last = NULL;
+  tsg_func_node_t* func_tail = NULL;
+  tsg_stmt_node_t* stmt_tail = NULL;
+
   while (true) {
-    tsg_func_t* func = parse_func(parser);
-    if (func == NULL) {
-      if (parser->token.kind == TSG_TOKEN_EOF) {
+    tsg_func_node_t* last_func = func_tail;
+    tsg_stmt_node_t* last_stmt = stmt_tail;
+
+    switch (parser->token.kind) {
+      case TSG_TOKEN_DEF:
+        last_func = parse_func_node(parser, block->funcs, func_tail);
+        if (last_func == func_tail) {
+          goto EXIT;
+        } else {
+          func_tail = last_func;
+        }
         break;
-      } else {
-        next(parser);
-        continue;
-      }
+
+      default:
+        last_stmt = parse_stmt_node(parser, block->stmts, stmt_tail);
+        if (last_stmt == stmt_tail) {
+          goto EXIT;
+        } else {
+          stmt_tail = last_stmt;
+        }
+        break;
     }
-
-    tsg_func_node_t* node = tsg_func_node_create();
-    node->func = func;
-
-    if (last == NULL) {
-      result->head = node;
-    } else {
-      last->next = node;
-    }
-
-    result->size += 1;
-    last = node;
   }
 
-  return result;
+EXIT:
+  return block;
+}
+
+tsg_func_node_t* parse_func_node(tsg_parser_t* parser, tsg_func_list_t* list,
+                                 tsg_func_node_t* tail) {
+  tsg_func_t* func = parse_func(parser);
+  if (func == NULL) {
+    return tail;
+  }
+
+  tsg_func_node_t* node = tsg_func_node_create();
+  node->func = func;
+
+  if (tail == NULL) {
+    list->head = node;
+  } else {
+    tail->next = node;
+  }
+
+  list->size += 1;
+  return node;
+}
+
+tsg_stmt_node_t* parse_stmt_node(tsg_parser_t* parser, tsg_stmt_list_t* list,
+                                 tsg_stmt_node_t* tail) {
+  tsg_stmt_t* stmt = parse_stmt(parser);
+  if (stmt == NULL) {
+    return tail;
+  }
+
+  tsg_stmt_node_t* node = tsg_stmt_node_create();
+  node->stmt = stmt;
+
+  if (tail == NULL) {
+    list->head = node;
+  } else {
+    tail->next = node;
+  }
+
+  list->size += 1;
+  return node;
 }
 
 tsg_func_t* parse_func(tsg_parser_t* parser) {
@@ -175,64 +232,24 @@ tsg_func_t* parse_func(tsg_parser_t* parser) {
     return NULL;
   }
 
+  tsg_func_t* func = tsg_func_create();
+  func->decl = tsg_decl_create();
+
   tsg_ident_t* name = parse_ident(parser);
   if (name == NULL) {
     error(parser, "expected identifier");
   }
 
-  tsg_decl_t* decl = tsg_decl_create();
-  decl->name = name;
-  decl->type_id = parser->func_types++;
-  decl->depth = -1;
-  decl->index = -1;
-
-  tsg_func_t* func = tsg_func_create();
-  func->decl = decl;
-  parser->n_types = 1;
-
+  func->decl->name = name;
   expect(parser, TSG_TOKEN_LPAREN);
-  func->args = parse_decl_list(parser);
+  func->params = parse_decl_list(parser);
   expect(parser, TSG_TOKEN_RPAREN);
 
   expect(parser, TSG_TOKEN_LBRACE);
   func->body = parse_block(parser);
   expect(parser, TSG_TOKEN_RBRACE);
 
-  func->n_types = parser->n_types;
   return func;
-}
-
-tsg_block_t* parse_block(tsg_parser_t* parser) {
-  tsg_block_t* block = tsg_block_create();
-  block->stmts = parse_stmt_list(parser);
-  block->n_decls = 0;
-  return block;
-}
-
-tsg_stmt_list_t* parse_stmt_list(tsg_parser_t* parser) {
-  tsg_stmt_list_t* result = tsg_stmt_list_create();
-
-  tsg_stmt_node_t* last = NULL;
-  while (true) {
-    tsg_stmt_t* stmt = parse_stmt(parser);
-    if (stmt == NULL) {
-      break;
-    }
-
-    tsg_stmt_node_t* node = tsg_stmt_node_create();
-    node->stmt = stmt;
-
-    if (last == NULL) {
-      result->head = node;
-    } else {
-      last->next = node;
-    }
-
-    result->size += 1;
-    last = node;
-  }
-
-  return result;
 }
 
 tsg_stmt_t* parse_stmt(tsg_parser_t* parser) {
@@ -320,7 +337,6 @@ tsg_expr_t* parse_expr_binary(tsg_parser_t* parser, int lowest_prec) {
       error(parser, "expected expression");
     } else {
       tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_BINARY);
-      expr->type_id = parser->n_types++;
       expr->loc.begin = lhs->loc.begin;
       expr->loc.end = rhs->loc.end;
       expr->binary.op = op;
@@ -360,7 +376,6 @@ tsg_expr_t* parse_expr_call(tsg_parser_t* parser, tsg_expr_t* operand) {
   expect(parser, TSG_TOKEN_RPAREN);
 
   tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_CALL);
-  expr->type_id = parser->n_types++;
   expr->loc.begin = operand->loc.begin;
   expr->loc.end = end;
   expr->call.callee = operand;
@@ -378,7 +393,7 @@ tsg_expr_t* parse_expr_operand(tsg_parser_t* parser) {
       return parse_expr_ifelse(parser);
 
     case TSG_TOKEN_IDENT:
-      return parse_expr_variable(parser);
+      return parse_expr_ident(parser);
 
     case TSG_TOKEN_NUMBER:
       return parse_expr_number(parser);
@@ -434,7 +449,6 @@ tsg_expr_t* parse_expr_ifelse(tsg_parser_t* parser) {
   expect(parser, TSG_TOKEN_RBRACE);
 
   tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_IFELSE);
-  expr->type_id = parser->n_types++;
   expr->loc.begin = begin;
   expr->loc.end = end;
   expr->ifelse.cond = cond;
@@ -444,17 +458,16 @@ tsg_expr_t* parse_expr_ifelse(tsg_parser_t* parser) {
   return expr;
 }
 
-tsg_expr_t* parse_expr_variable(tsg_parser_t* parser) {
+tsg_expr_t* parse_expr_ident(tsg_parser_t* parser) {
   tsg_ident_t* ident = parse_ident(parser);
   if (ident == NULL) {
     return NULL;
   }
 
-  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_VARIABLE);
-  expr->type_id = parser->n_types++;
+  tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_IDENT);
   expr->loc = ident->loc;
-  expr->variable.name = ident;
-  expr->variable.resolved = NULL;
+  expr->ident.name = ident;
+  expr->ident.object = NULL;
 
   return expr;
 }
@@ -474,7 +487,6 @@ tsg_expr_t* parse_expr_number(tsg_parser_t* parser) {
   }
 
   tsg_expr_t* expr = tsg_expr_create(TSG_EXPR_NUMBER);
-  expr->type_id = parser->n_types++;
   expr->loc = parser->token.loc;
   expr->number.value = number;
   next(parser);
@@ -523,9 +535,6 @@ tsg_decl_t* parse_decl(tsg_parser_t* parser) {
 
   tsg_decl_t* decl = tsg_decl_create();
   decl->name = ident;
-  decl->type_id = parser->n_types++;
-  decl->depth = -1;
-  decl->index = -1;
 
   return decl;
 }

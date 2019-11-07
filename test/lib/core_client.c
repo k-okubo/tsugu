@@ -22,15 +22,16 @@ void _start(void) {
 
   tsg_parser_destroy(parser);
   tsg_scanner_destroy(scanner);
+  /*/
+    tsg_resolver_t* resolver = tsg_resolver_create();
+    tsg_resolver_resolve(resolver, ast);
+    tsg_resolver_destroy(resolver);
 
-  tsg_resolver_t* resolver = tsg_resolver_create();
-  tsg_resolver_resolve(resolver, ast);
-  tsg_resolver_destroy(resolver);
+    tsg_verifier_t* verifier = tsg_verifier_create();
+    tsg_tyenv_t* tyenv = NULL;
+    tsg_verifier_verify(verifier, ast, &tyenv);
 
-  tsg_verifier_t* verifier = tsg_verifier_create();
-  tsg_tyenv_t* tyenv = NULL;
-  tsg_verifier_verify(verifier, ast, &tyenv);
-
-  tsg_tyenv_destroy(tyenv);
+    tsg_tyenv_destroy(tyenv);
+    */
   tsg_ast_destroy(ast);
 }

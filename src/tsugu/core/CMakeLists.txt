@@ -6,9 +6,11 @@ include_directories("${PROJECT_SOURCE_DIR}/src")
 add_library(tsugu_core
   ast.c
   error.c
+  frame.c
   parser.c
   resolver.c
   scanner.c
+  scope.c
   symtbl.c
   token.c
   tyenv.c

@@ -21,6 +21,16 @@ void* tsg_memcpy(void* dst, const void* src, size_t count);
 void* tsg_memset(void* dst, int ch, size_t count);
 size_t tsg_strlen(const char* str);
 
+#ifdef NDEBUG
+#define tsg_assert(expr) ((void)(0))
+#else
+void tsg_assert_failure(const char* expr, const char* file, int line,
+                        const char* func);
+
+#define tsg_assert(expr) \
+  ((expr) ? (void)(0) : tsg_assert_failure(#expr, __FILE__, __LINE__, __func__))
+#endif
+
 #ifdef __cplusplus
 }
 #endif

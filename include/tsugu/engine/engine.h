@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-int32_t tsg_engine_run_ast(tsg_ast_t* ast, tsg_tyenv_t* tyenv);
+int32_t tsg_engine_run_ast(tsg_ast_t* ast);
 
 #ifdef __cplusplus
 }

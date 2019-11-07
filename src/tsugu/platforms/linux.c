@@ -5,6 +5,7 @@
  ** --------------------------------------------------------------------------*/
 
 #include <tsugu/core/platform.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,4 +30,11 @@ void* tsg_memset(void* dst, int ch, size_t count) {
 
 size_t tsg_strlen(const char* str) {
   return strlen(str);
+}
+
+void tsg_assert_failure(const char* expr, const char* file, int line,
+                        const char* func) {
+  fprintf(stderr, "%s:%d: %s: Assertion '%s' failed.\n", file, line, func,
+          expr);
+  abort();
 }

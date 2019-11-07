@@ -7,6 +7,7 @@
 #ifndef TSUGU_CORE_TYPE_H
 #define TSUGU_CORE_TYPE_H
 
+#include <tsugu/core/token.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -24,6 +25,7 @@ typedef enum {
 } tsg_type_kind_t;
 
 typedef struct tsg_func_s tsg_func_t;
+typedef struct tsg_tyenv_s tsg_tyenv_t;
 typedef struct tsg_tymap_s tsg_tymap_t;
 
 typedef struct tsg_type_s tsg_type_t;
@@ -36,6 +38,7 @@ struct tsg_type_func_s {
 
 struct tsg_type_poly_s {
   tsg_func_t* func;
+  tsg_tyenv_t* outer;
   tsg_tymap_t* tymap;
 };
 
@@ -55,13 +58,17 @@ struct tsg_type_arr_s {
   size_t size;
 };
 
-tsg_type_t* tsg_type_create(void);
+tsg_type_t* tsg_type_create(tsg_type_kind_t kind);
 void tsg_type_retain(tsg_type_t* type);
 void tsg_type_release(tsg_type_t* type);
 bool tsg_type_equals(tsg_type_t* a, tsg_type_t* b);
 
+tsg_type_t* tsg_type_unify(tsg_type_t* a, tsg_type_t* b);
+tsg_type_t* tsg_type_binary(tsg_token_kind_t op, tsg_type_t* lhs,
+                            tsg_type_t* rhs);
+
 tsg_type_arr_t* tsg_type_arr_create(size_t size);
-tsg_type_arr_t* tsg_type_arr_dup(const tsg_type_arr_t* arr);
+tsg_type_arr_t* tsg_type_arr_dup(const tsg_type_arr_t* src);
 void tsg_type_arr_destroy(tsg_type_arr_t* arr);
 bool tsg_type_arr_equals(tsg_type_arr_t* a, tsg_type_arr_t* b);
 
