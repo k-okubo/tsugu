@@ -264,6 +264,7 @@ void resolve_expr_call(tsg_resolver_t* resolver, tsg_expr_t* expr) {
   tsg_assert(expr != NULL && expr->kind == TSG_EXPR_CALL);
   resolve_expr(resolver, expr->call.callee);
   resolve_expr_list(resolver, expr->call.args);
+  expr->call.ftype = tsg_tyvar_create(resolver->tyset);
 }
 
 void resolve_expr_ifelse(tsg_resolver_t* resolver, tsg_expr_t* expr) {

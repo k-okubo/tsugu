@@ -21,6 +21,7 @@ static tsg_type_t* type_op_arith(tsg_type_t* lhs, tsg_type_t* rhs);
 tsg_type_t* tsg_type_create(tsg_type_kind_t kind) {
   tsg_type_t* type = tsg_malloc_obj(tsg_type_t);
 
+  tsg_memset(type, 0, sizeof(tsg_type_t));
   type->kind = kind;
   type->nrefs = 1;
 

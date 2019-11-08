@@ -353,37 +353,32 @@ llvm::Value* Compiler::buildExprCall(tsg_expr_t* expr) {
 
   auto callee_obj = buildExpr(expr->call.callee);
   tsg_type_t* callee_type = tsg_tyenv_get(tyenv, expr->call.callee->tyvar);
-  assert(callee_type != NULL && callee_type->kind == TSG_TYPE_POLY);
+  assert(callee_type != nullptr && callee_type->kind == TSG_TYPE_POLY);
 
   std::vector<llvm::Value*> args;
   args.push_back(callee_obj);
-
-  tsg_type_arr_t* arg_types = tsg_type_arr_create(expr->call.args->size);
-  tsg_type_t** p = arg_types->elem;
 
   auto node = expr->call.args->head;
   while (node) {
     auto value = buildExpr(node->expr);
     args.push_back(value);
-
-    tsg_type_t* type = tsg_tyenv_get(tyenv, node->expr->tyvar);
-    tsg_type_retain(type);
-    *(p++) = type;
     node = node->next;
   }
 
   auto block = builder.GetInsertBlock();
 
-  tsg_tyenv_t* callee_env = tsg_tymap_get(callee_type->poly.tymap, arg_types);
+  tsg_type_t* func_type = tsg_tyenv_get(tyenv, expr->call.ftype);
+  assert(func_type != nullptr && func_type->kind == TSG_TYPE_FUNC);
+  tsg_tyenv_t* callee_env =
+      tsg_tymap_get(callee_type->poly.tymap, func_type->func.params);
   llvm::Value* callee_func = fetchFunc(callee_type->poly.func, callee_env);
-  tsg_type_arr_destroy(arg_types);
 
   builder.SetInsertPoint(block);
   return builder.CreateCall(callee_func, args);
 }
 
 llvm::Value* Compiler::buildExprIfelse(tsg_expr_t* expr) {
-  assert(expr != NULL && expr->kind == TSG_EXPR_IFELSE);
+  assert(expr != nullptr && expr->kind == TSG_EXPR_IFELSE);
 
   llvm::Function* func = builder.GetInsertBlock()->getParent();
   auto then_block = llvm::BasicBlock::Create(context, "then");

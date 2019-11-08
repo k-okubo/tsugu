@@ -169,6 +169,7 @@ void destroy_expr_call(tsg_expr_t* expr) {
   tsg_assert(expr != NULL && expr->kind == TSG_EXPR_CALL);
   tsg_expr_destroy(expr->call.callee);
   tsg_expr_list_destroy(expr->call.args);
+  tsg_tyvar_destroy(expr->call.ftype);
 }
 
 void destroy_expr_ifelse(tsg_expr_t* expr) {

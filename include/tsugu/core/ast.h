@@ -103,6 +103,7 @@ struct tsg_expr_binary_s {
 struct tsg_expr_call_s {
   tsg_expr_t* callee;
   tsg_expr_list_t* args;
+  tsg_tyvar_t* ftype;
 };
 
 struct tsg_expr_ifelse_s {

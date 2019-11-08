@@ -276,6 +276,7 @@ tsg_type_t* verify_expr_call(tsg_verifier_t* verifier, tsg_expr_t* expr) {
 
   tsg_type_t* func_type = verify_poly(verifier, callee_type, arg_types);
   tsg_assert(func_type->kind == TSG_TYPE_FUNC);
+  tsg_tyenv_set(verifier->tyenv, expr->call.ftype, func_type);
   tsg_type_release(callee_type);
 
   tsg_type_t* type = func_type->func.ret;
